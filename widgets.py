@@ -532,15 +532,16 @@ class StatusBar(Gtk.HBox):
     def __init__(self):
         Gtk.HBox.__init__(self)
 
+        self.icon_size = G.DEFAULT_ICON_SIZE / 8
         self.set_margin_left(10)
 
         self.label = Gtk.Label(G.HOME_DIR)
         self.label.modify_font(Pango.FontDescription('12'))
         self.pack_start(self.label, False, False, 0)
 
-        self.scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 12, 148, 4)
+        self.scale = Gtk.HScale.new_with_range(1, 8, 1)
         self.scale.set_draw_value(False)
-        self.scale.set_value(G.DEFAULT_ICON_SIZE)
+        self.scale.set_value(self.icon_size)
         self.scale.set_size_request(100, -1)
         self.scale.connect('value-changed', self.__value_changed)
         self.pack_end(self.scale, False, False, 10)
@@ -566,5 +567,33 @@ class StatusBar(Gtk.HBox):
             directory = selected[0]
             self.label.set_label(directory + '    ' + G.get_size(directory))
 
+        elif len(selected) > 1:
+            folders = []
+            files = []
+            label = ''
+
+            for x in selected:
+                if os.path.isdir(x):
+                    folders.append(x)
+
+                if os.path.isfile(x):
+                    files.append(x)
+
+            if folders:
+                label = '%d %s' % (len(folders), _('folders selecteds'))
+
+            if folders and files:
+                label += ' %s ' % _('and')
+
+            if files:
+                label += '%d %s' % (len(files), _('files selecteds'))
+                if folders:
+                    label = label.replace(_('selecteds'), '') + _(' selecteds')
+
+            self.label.set_label(label)
+
     def __value_changed(self, widget):
-        self.emit('icon-size-changed', int(widget.get_value()))
+        value = int(widget.get_value())
+        if value != self.icon_size:
+            self.icon_size = value
+            self.emit('icon-size-changed', value * 16)
