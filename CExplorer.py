@@ -23,6 +23,7 @@ import globals as G
 from gi.repository import Gtk
 
 from widgets import View
+from widgets import InfoBar
 from widgets import Notebook
 from widgets import PlaceBox
 from widgets import LateralView
@@ -43,10 +44,11 @@ class CExplorer(Gtk.Window):
         self.place_box = PlaceBox()
         self.lateral_view = LateralView()
         self.notebook = Notebook()
+        self.infobar = InfoBar()
 
+        self.resize(620, 480)
         self.set_title(self.folder_name)
         self.set_titlebar(self.place_box)
-        self.resize(620, 480)
 
         self.connect('destroy', Gtk.main_quit)
         self.connect('check-resize', self.__size_changed_cb)
@@ -59,12 +61,14 @@ class CExplorer(Gtk.Window):
 
         self.paned.pack1(self.lateral_view, False)
         self.paned.pack2(self.notebook, True)
+        self.vbox.pack_start(self.infobar, False, False, 0)
         self.vbox.pack_start(self.paned, True, True, 10)
 
         self.new_page()
 
         self.add(self.vbox)
         self.show_all()
+        self.infobar.hide()
 
     def __size_changed_cb(self, widget):
         self.place_box.entry.set_size_request(self.get_size()[0] / 2, -1)
@@ -74,10 +78,16 @@ class CExplorer(Gtk.Window):
             self.set_folder(path)
 
     def set_folder(self, folder):
-        self.folder = folder
-        self.get_actual_view().folder = folder
-        self.place_box.set_folder(folder)
-        self.scan_folder.set_folder(folder)
+        readable, writable = G.get_access(folder)
+        if readable:
+            self.folder = folder
+            self.get_actual_view().folder = folder
+            self.place_box.set_folder(folder)
+            self.scan_folder.set_folder(folder)
+
+        else:
+            self.infobar.set_msg(folder)
+            self.infobar.show_all()
 
     def go_up(self, *args):
         self.set_folder(G.get_parent_directory(self.folder))
@@ -108,6 +118,9 @@ class CExplorer(Gtk.Window):
     def get_actual_view(self):
         idx = self.notebook.get_current_page()
         return self.notebook.get_children()[idx]
+
+    def __infobar_response(self, infobar, response):
+        infobar.hide()
 
 
 if __name__ == '__main__':

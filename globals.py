@@ -33,6 +33,9 @@ DEFAULT_ITEM_ICON_SIZE = 32
 COLOR_UNSELECTED = Gdk.color_parse('#FFFFFF')
 COLOR_SELECTED = Gdk.color_parse('#4A90D9')
 
+MSG_UNREADABLE_TITLE = _('Could not be displayed here.')
+MSG_UNREADABLE_CONTENT = _('You do not have sufficient permissions to view the content of @.')
+
 HOME_DIR = os.path.expanduser('~')
 HOME_NAME = _('Personal folder')
 DESKTOP_DIR = GLib.get_user_special_dir(GLib.USER_DIRECTORY_DESKTOP)
@@ -267,3 +270,8 @@ def get_parent_directory(folder):
             path += _folder + '/'
 
     return path
+
+
+def get_access(path):
+    #  R_OK = Readable, W_OK = Writable
+    return os.access(path, os.R_OK), os.access(path, os.W_OK)

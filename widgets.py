@@ -67,11 +67,13 @@ class View(Gtk.ScrolledWindow):
             iter = self.model.get_iter(path)
             name = self.model.get_value(iter, 0)
             directory = os.path.join(self.folder, name)
-            if name in self.dirs.names:
-                directory = self.dirs[name]
+
+            if name == G.HOME_NAME:
+                directory = G.HOME_DIR
 
             if event.type.value_name == 'GDK_2BUTTON_PRESS':
-
+                directory = directory.replace('//', '/')
+                directory = directory.replace('//', '/')
                 self.emit('item-selected', directory)
 
         except TypeError:
@@ -95,6 +97,35 @@ class View(Gtk.ScrolledWindow):
             pixbuf = G.get_pixbuf_from_path(path)
 
             self.model.append([name, pixbuf])
+
+
+class InfoBar(Gtk.InfoBar):
+
+    def __init__(self):
+        Gtk.InfoBar.__init__(self)
+
+        self.set_show_close_button(True)
+        self.set_message_type(Gtk.MessageType.ERROR)
+
+        self.connect('response', self.__response)
+
+        hbox = self.get_content_area()
+        vbox = Gtk.VBox()
+        hbox.add(vbox)
+
+        title = Gtk.Label(G.MSG_UNREADABLE_TITLE)
+        title.modify_font(Pango.FontDescription('Bold 12'))
+        vbox.pack_start(title, False, False, 2)
+
+        self.msg = Gtk.Label()
+        vbox.pack_start(self.msg, False, False, 0)
+
+    def __response(self, widget, response):
+        self.hide()
+
+    def set_msg(self, path):
+        msg = G.MSG_UNREADABLE_CONTENT.replace('@', '"%s"' % path)
+        self.msg.set_label(msg)
 
 
 class TreeViewItem(Gtk.EventBox):
