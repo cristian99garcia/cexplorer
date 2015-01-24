@@ -1,0 +1,114 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Copyright (C) 2014, Cristian García <cristian99garcia@gmail.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+
+import os
+import globals as G
+
+from gi.repository import Gtk
+
+from widgets import View
+from widgets import Notebook
+from widgets import PlaceBox
+from widgets import LateralView
+
+
+class CExplorer(Gtk.Window):
+
+    def __init__(self):
+        Gtk.Window.__init__(self)
+
+        self.dirs = G.Dirs()
+        self.folder = G.HOME_DIR
+        self.folder_name = self.dirs[self.folder]
+        self.scan_folder = G.ScanFolder(self.folder)
+
+        self.vbox = Gtk.VBox()
+        self.paned = Gtk.HPaned()
+        self.place_box = PlaceBox()
+        self.lateral_view = LateralView()
+        self.notebook = Notebook()
+
+        self.set_title(self.folder_name)
+        self.set_titlebar(self.place_box)
+        self.resize(620, 480)
+
+        self.connect('destroy', Gtk.main_quit)
+        self.connect('check-resize', self.__size_changed_cb)
+        self.place_box.connect('go-up', self.go_up)
+        self.lateral_view.connect('item-selected', self.__item_selected)
+        self.notebook.connect('switch-page', self.update_widgets)
+        self.notebook.connect('new-page', lambda w, p: self.new_page(p))
+        self.scan_folder.connect('files-changed', self.update_icons)
+
+        self.paned.pack1(self.lateral_view, False)
+        self.paned.pack2(self.notebook, True)
+        self.vbox.pack_start(self.paned, True, True, 10)
+
+        self.new_page()
+
+        self.add(self.vbox)
+        self.show_all()
+
+    def __size_changed_cb(self, widget):
+        self.place_box.entry.set_size_request(self.get_size()[0] / 2, -1)
+
+    def __item_selected(self, widget, path):
+        if os.path.isdir(path):
+            self.set_folder(path)
+
+    def set_folder(self, folder):
+        self.folder = folder
+        self.get_actual_view().folder = folder
+        self.place_box.set_folder(folder)
+        self.scan_folder.set_folder(folder)
+
+    def go_up(self, *args):
+        self.set_folder(G.get_parent_directory(self.folder))
+
+    def new_page(self, path=''):
+        path = G.HOME_DIR if not path else path
+        view = self.notebook.create_page_from_path(path)
+        view.connect('item-selected', self.__item_selected)
+
+    def update_widgets(self, notebook=None, view=None, page=None):
+        # FIXME: hay que fijarse la posición actual con respecto al historial
+        #        para poder hacer set_sensitive
+
+        if not view:
+            view = self.get_actual_view()
+
+        self.place_box.button_left.set_sensitive(bool(view.history))
+        self.place_box.button_right.set_sensitive(bool(view.history))
+        self.place_box.button_up.set_sensitive(view.folder != G.SYSTEM_DIR)
+        self.lateral_view.select_item(self.folder)
+        self.scan_folder.set_folder(view.folder)
+
+    def update_icons(self, scan_folder, paths):
+        view = self.get_actual_view()
+        view.show_icons(paths)
+        self.update_widgets()
+
+    def get_actual_view(self):
+        idx = self.notebook.get_current_page()
+        return self.notebook.get_children()[idx]
+
+
+if __name__ == '__main__':
+    CExplorer()
+    Gtk.main()
