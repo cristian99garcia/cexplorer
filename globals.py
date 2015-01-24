@@ -157,11 +157,10 @@ class ScanFolder(GObject.GObject):
 
         GObject.timeout_add(timeout, self.scan)
 
-    def scan(self):
+    def scan(self, force=False):
         files = []
         directories = []
-
-        if self.files != self.get_files():
+        if (self.files != self.get_files()) or force:
             self.files = self.get_files()
 
             self.emit('files-changed', self.files)

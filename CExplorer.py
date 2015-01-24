@@ -38,6 +38,8 @@ class CExplorer(Gtk.Window):
         self.folder = G.HOME_DIR
         self.folder_name = self.dirs[self.folder]
         self.scan_folder = G.ScanFolder(self.folder)
+        self.other_view = False
+        self.view = None
 
         self.vbox = Gtk.VBox()
         self.paned = Gtk.HPaned()
@@ -64,6 +66,8 @@ class CExplorer(Gtk.Window):
         self.vbox.pack_start(self.infobar, False, False, 0)
         self.vbox.pack_start(self.paned, True, True, 10)
 
+        self.new_page()
+        self.new_page()
         self.new_page()
 
         self.add(self.vbox)
@@ -101,23 +105,30 @@ class CExplorer(Gtk.Window):
         # FIXME: hay que fijarse la posición actual con respecto al historial
         #        para poder hacer set_sensitive
 
-        if not view:
-            view = self.get_actual_view()
+        view = self.get_actual_view() if not view else view
+        self.view = view
+        self.other_view = True
+        self.folder = view.folder
 
         self.place_box.button_left.set_sensitive(bool(view.history))
         self.place_box.button_right.set_sensitive(bool(view.history))
         self.place_box.button_up.set_sensitive(view.folder != G.SYSTEM_DIR)
         self.lateral_view.select_item(self.folder)
         self.scan_folder.set_folder(view.folder)
+        self.scan_folder.scan(force=True)
 
     def update_icons(self, scan_folder, paths):
         view = self.get_actual_view()
         view.show_icons(paths)
-        self.update_widgets()
 
     def get_actual_view(self):
-        idx = self.notebook.get_current_page()
-        return self.notebook.get_children()[idx]
+        if not self.other_view:
+            idx = self.notebook.get_current_page()
+            return self.notebook.get_children()[idx]
+
+        else:
+            self.other_view = False
+            return self.view
 
 
 if __name__ == '__main__':
