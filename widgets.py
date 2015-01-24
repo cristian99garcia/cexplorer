@@ -434,6 +434,10 @@ class PlaceBox(Gtk.HeaderBar):
         self.add(self.hbox)
 
     def set_folder(self, folder):
+        # FIXME: Hay que agregar botones de desplazamientos, de lo contrario
+        #        cuando haya que abrir una dirección larga, se agrandara la
+        #        ventana
+
         folder = folder.replace('//', '/')
         folder = folder.replace('//', '/')
         self.folder = self.folder.replace('//', '/')
@@ -441,7 +445,9 @@ class PlaceBox(Gtk.HeaderBar):
 
         if self.show_buttons:
             if self.folder.startswith(folder) and \
-                self.buttonbox.get_children() and self.folder != G.HOME_DIR:
+                self.buttonbox.get_children() and \
+                (not G.HOME_DIR.startswith(self.folder) or \
+                not self.buttonbox.get_children()[0].get_children()[0].get_label() == G.HOME_NAME):
 
                 self.folder = folder
                 return
