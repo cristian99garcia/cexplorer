@@ -67,8 +67,6 @@ class CExplorer(Gtk.Window):
         self.vbox.pack_start(self.paned, True, True, 10)
 
         self.new_page()
-        self.new_page()
-        self.new_page()
 
         self.add(self.vbox)
         self.show_all()
