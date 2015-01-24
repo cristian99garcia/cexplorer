@@ -287,8 +287,42 @@ def get_access(path):
     #  R_OK = Readable, W_OK = Writable
     return os.access(path, os.R_OK), os.access(path, os.W_OK)
 
-
 def natural_sort(_list):
     convert = lambda text: int(text) if text.isdigit() else text.lower()
     alphanum_key = lambda key: [convert(c) for c in re.split('([0-9]+)', key)]
     return sorted(_list, key=alphanum_key)
+
+def get_size(path):
+    writable, readable = get_access(path)
+    if not readable:
+        return ''
+
+    if os.path.isdir(path):
+        text = 'Contains %d items' % len(os.listdir(path))
+        text = text.replace('0 items', 'any items')
+        return text.replace('1 items', 'a item')
+
+    elif os.path.isfile(path):
+        size = os.path.getsize(path)
+        size_str = ''
+        if size < 1024:
+            size = size
+            size_str = 'B'
+
+        elif size >= 1024 and size < 1024 ** 2:
+            size = size / 1024
+            size_str = 'KB'
+
+        elif size >= 1024 ** 2 and size < 1024 ** 3:
+            size = size / 1024 / 1024
+            size_str = 'MB'
+
+        elif size >= 1024 ** 3 and size < 1024 ** 4:
+            size = size / 1024 / 1024 / 1024
+            size_str = 'GB'
+
+        elif size >= 1024 ** 4:
+            size = size / 1024 / 1024 / 1024 / 1024
+            size_str = 'TB'
+
+        return 'Size: %d%s' % (size, size_str)

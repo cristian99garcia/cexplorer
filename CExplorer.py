@@ -27,6 +27,7 @@ from widgets import View
 from widgets import InfoBar
 from widgets import Notebook
 from widgets import PlaceBox
+from widgets import StatusBar
 from widgets import LateralView
 
 
@@ -41,6 +42,7 @@ class CExplorer(Gtk.Window):
         self.scan_folder = G.ScanFolder(self.folder)
         self.other_view = False
         self.view = None
+        self.icon_size = G.DEFAULT_ICON_SIZE
 
         self.vbox = Gtk.VBox()
         self.paned = Gtk.HPaned()
@@ -48,6 +50,7 @@ class CExplorer(Gtk.Window):
         self.lateral_view = LateralView()
         self.notebook = Notebook()
         self.infobar = InfoBar()
+        self.statusbar = StatusBar()
 
         self.resize(620, 480)
         self.set_title(self.folder_name)
@@ -62,11 +65,13 @@ class CExplorer(Gtk.Window):
         self.notebook.connect('new-page', lambda w, p: self.new_page(p))
         self.notebook.connect('remove-page', self.__remove_page_from_notebook)
         self.scan_folder.connect('files-changed', self.update_icons)
+        self.statusbar.connect('icon-size-changed', self.__icon_size_changed)
 
         self.paned.pack1(self.lateral_view, False)
         self.paned.pack2(self.notebook, True)
         self.vbox.pack_start(self.infobar, False, False, 0)
-        self.vbox.pack_start(self.paned, True, True, 10)
+        self.vbox.pack_start(self.paned, True, True, 2)
+        self.vbox.pack_start(self.statusbar, False, False, 2)
 
         self.new_page()
 
@@ -106,6 +111,14 @@ class CExplorer(Gtk.Window):
         idx = self.notebook.get_children().index(view)
         self.remove_page(idx)
 
+    def __icon_size_changed(self, widget, value):
+        self.icon_size = value
+        for view in self.notebook.get_children():
+            GObject.idle_add(view.set_icon_size, value)
+
+    def __update_statusbar(self, view, selection):
+        self.statusbar.update_label(view.folder, selection, view.model)
+
     def remove_page(self, idx=None, view=None):
         if not view:
             if idx is None:
@@ -139,6 +152,7 @@ class CExplorer(Gtk.Window):
     def new_page(self, path=''):
         path = G.HOME_DIR if not path else path
         view = self.notebook.create_page_from_path(path)
+        view.connect('selection-changed', self.__update_statusbar)
         view.connect('item-selected', self.__item_selected)
         view.connect('multiple-selection', self.__multiple_selection)
         view.connect('new-page', lambda x, p: self.new_page(p))
@@ -148,7 +162,7 @@ class CExplorer(Gtk.Window):
         #        para poder hacer set_sensitive
 
         update_icons = False
-        if not view or not isinstance(view, Gtk.ScrolledWindow) and force:
+        if (not view or not isinstance(view, Gtk.ScrolledWindow)) and force:
             view = self.get_actual_view()
             update_icons = True
 
@@ -166,7 +180,6 @@ class CExplorer(Gtk.Window):
 
     def update_icons(self, scan_folder, paths):
         view = self.get_actual_view()
-        view.model.clear()
         GObject.idle_add(view.show_icons, paths)
 
     def get_actual_view(self):

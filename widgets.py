@@ -35,13 +35,17 @@ class View(Gtk.ScrolledWindow):
         'item-selected': (GObject.SIGNAL_RUN_FIRST, None, [str]),
         'new-page': (GObject.SIGNAL_RUN_FIRST, None, [str]),
         'multiple-selection': (GObject.SIGNAL_RUN_FIRST, None, [object]),
+        'selection-changed': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         }
 
     def __init__(self, folder):
         Gtk.ScrolledWindow.__init__(self)
 
         self.history = []
+        self.folders = []
+        self.files = []
         self.folder = folder
+        self.icon_size = G.DEFAULT_ICON_SIZE
         self.dirs = G.Dirs()
         self.model = Gtk.ListStore(str, GdkPixbuf.Pixbuf)
         self.view = Gtk.IconView()
@@ -55,8 +59,12 @@ class View(Gtk.ScrolledWindow):
 
         self.view.connect('key-release-event', self.__key_release_event_cb)
         self.view.connect('button-press-event', self.__button_press_event_cb)
+        self.view.connect('selection-changed', self.__selection_changed)
 
         self.add(self.view)
+
+    def __selection_changed(self, view):
+        self.emit('selection-changed', view.get_selected_items())
 
     def __key_release_event_cb(self, view, event):
         key = G.KEYS.get(event.keyval, False)
@@ -78,8 +86,6 @@ class View(Gtk.ScrolledWindow):
         # FIXME: Hay que fijarse por un event.button == 3
         #        para crear el popup menu
 
-        # FIXME: Hay que agregar funcionalidad para más de una dirección
-
         if event.button == 3:
             self.create_menu(event.x, event.y, event.time)
             return
@@ -97,6 +103,11 @@ class View(Gtk.ScrolledWindow):
         if event.button == 1 and event.type.value_name == 'GDK_2BUTTON_PRESS':
             self.emit('item-selected', directory)
 
+    def set_icon_size(self, icon_size):
+        GObject.idle_add(self.model.clear)
+        self.icon_size = icon_size
+        GObject.idle_add(self.__show_icons)
+
     def get_path_from_treeiter(self, treeiter):
         name = self.model.get_value(treeiter, 0)
         directory = os.path.join(self.folder, name)
@@ -110,20 +121,27 @@ class View(Gtk.ScrolledWindow):
         return directory
 
     def show_icons(self, paths):
-        folders = []
-        files = []
+        GObject.idle_add(self.model.clear)
+
+        del self.folders
+        del self.files
+
+        self.folders = []
+        self.files = []
 
         for path in paths:
             if os.path.isdir(path):
-                folders.append(path)
+                self.folders.append(path)
 
             elif os.path.isfile(path):
-                files.append(path)
+                self.files.append(path)
 
-        for path in folders + files:
+        GObject.idle_add(self.__show_icons)
+
+    def __show_icons(self):
+        for path in self.folders + self.files:
             name = self.dirs[path]
-            pixbuf = G.get_pixbuf_from_path(path)
-
+            pixbuf = G.get_pixbuf_from_path(path, self.icon_size)
             self.model.append([name, pixbuf])
 
     def create_menu(self, x, y, time):
@@ -503,3 +521,50 @@ class PlaceBox(Gtk.HeaderBar):
 
     def __button_clicked(self, button):
         self.emit('change-directory', button.path)
+
+
+class StatusBar(Gtk.HBox):
+
+    __gsignals__ = {
+        'icon-size-changed': (GObject.SIGNAL_RUN_FIRST, None, [int])
+        }
+
+    def __init__(self):
+        Gtk.HBox.__init__(self)
+
+        self.set_margin_left(10)
+
+        self.label = Gtk.Label(G.HOME_DIR)
+        self.label.modify_font(Pango.FontDescription('12'))
+        self.pack_start(self.label, False, False, 0)
+
+        self.scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 12, 148, 4)
+        self.scale.set_draw_value(False)
+        self.scale.set_value(G.DEFAULT_ICON_SIZE)
+        self.scale.set_size_request(100, -1)
+        self.scale.connect('value-changed', self.__value_changed)
+        self.pack_end(self.scale, False, False, 10)
+
+    def update_label(self, folder, paths, model):
+        selected = []
+        for path in paths:
+            treeiter = model.get_iter(path)
+            name = model.get_value(treeiter, 0)
+            directory = os.path.join(folder, name)
+
+            if name == G.HOME_NAME:
+                directory = G.HOME_DIR
+
+            directory = directory.replace('//', '/')
+            directory = directory.replace('//', '/')
+            selected.append(directory)
+
+        if not selected:
+            self.label.set_label(folder)
+
+        elif len(selected) == 1:
+            directory = selected[0]
+            self.label.set_label(directory + '    ' + G.get_size(directory))
+
+    def __value_changed(self, widget):
+        self.emit('icon-size-changed', int(widget.get_value()))
