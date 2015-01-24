@@ -33,6 +33,7 @@ class View(Gtk.ScrolledWindow):
 
     __gsignals__ = {
         'item-selected': (GObject.SIGNAL_RUN_FIRST, None, [str]),
+        'new-page': (GObject.SIGNAL_RUN_FIRST, None, [str]),
         'multiple-selection': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         }
 
@@ -79,7 +80,8 @@ class View(Gtk.ScrolledWindow):
 
         # FIXME: Hay que agregar funcionalidad para más de una dirección
 
-        if event.button != 1:
+        if event.button == 3:
+            self.create_menu(event.x, event.y, event.time)
             return
 
         path = view.get_path_at_pos(int(event.x), int(event.y))
@@ -89,7 +91,10 @@ class View(Gtk.ScrolledWindow):
         treeiter = self.model.get_iter(path)
         directory = self.get_path_from_treeiter(treeiter)
 
-        if event.type.value_name == 'GDK_2BUTTON_PRESS':
+        if event.button == 2:
+            self.emit('new-page', directory)
+
+        if event.button == 1 and event.type.value_name == 'GDK_2BUTTON_PRESS':
             self.emit('item-selected', directory)
 
     def get_path_from_treeiter(self, treeiter):
@@ -122,6 +127,9 @@ class View(Gtk.ScrolledWindow):
             pixbuf = G.get_pixbuf_from_path(path)
 
             self.model.append([name, pixbuf])
+
+    def create_menu(self, x, y, time):
+        print x, y, time
 
 
 class InfoBar(Gtk.InfoBar):
@@ -310,7 +318,6 @@ class LateralView(Gtk.ScrolledWindow):
             self.emit('item-selected', item.path)
 
     def select_item(self, path):
-        print path
         for item in self.items:
             if item.path and not item.path.endswith('/'):
                 item.path += '/'
@@ -347,7 +354,7 @@ class Notebook(Gtk.Notebook):
         button = Gtk.ToolButton.new_from_stock(Gtk.STOCK_CLOSE)
         view = View(path)
 
-        self.set_show_tabs(len(self.get_children()) > 1)
+        self.set_show_tabs(bool(self.get_children()))
 
         hbox.pack_start(label, False, False, 10)
         hbox.pack_end(button, False, False, 0)

@@ -21,6 +21,7 @@ import os
 import globals as G
 
 from gi.repository import Gtk
+from gi.repository import GObject
 
 from widgets import View
 from widgets import InfoBar
@@ -57,7 +58,7 @@ class CExplorer(Gtk.Window):
         self.place_box.connect('go-up', self.go_up)
         self.place_box.connect('change-directory', self.__item_selected)
         self.lateral_view.connect('item-selected', self.__item_selected)
-        self.notebook.connect('switch-page', self.update_widgets)
+        self.notebook.connect('switch-page', self.__switch_page)
         self.notebook.connect('new-page', lambda w, p: self.new_page(p))
         self.scan_folder.connect('files-changed', self.update_icons)
 
@@ -97,6 +98,9 @@ class CExplorer(Gtk.Window):
             for folder in folders:
                 self.new_page(folder)
 
+    def __switch_page(self, notebook, view, page):
+        GObject.idle_add(self.update_widgets, view=view)
+
     def set_folder(self, folder):
         readable, writable = G.get_access(folder)
         if readable:
@@ -109,7 +113,7 @@ class CExplorer(Gtk.Window):
             self.infobar.set_msg(folder)
             self.infobar.show_all()
 
-        self.update_widgets(force=False)
+        GObject.idle_add(self.update_widgets, force=False)
 
     def go_up(self, *args):
         self.set_folder(G.get_parent_directory(self.folder))
@@ -119,25 +123,28 @@ class CExplorer(Gtk.Window):
         view = self.notebook.create_page_from_path(path)
         view.connect('item-selected', self.__item_selected)
         view.connect('multiple-selection', self.__multiple_selection)
+        view.connect('new-page', lambda x, p: self.new_page(p))
 
-    def update_widgets(self, notebook=None, view=None, page=None, force=True):
+    def update_widgets(self, view=None, force=True):
         # FIXME: hay que fijarse la posición actual con respecto al historial
         #        para poder hacer set_sensitive
 
-        if not view or not isinstance(view, Gtk.ScrolledWindow):
+        update_icons = False
+        if not view or not isinstance(view, Gtk.ScrolledWindow) and force:
             view = self.get_actual_view()
+            update_icons = True
 
         self.view = view
         self.other_view = True
         self.folder = view.folder
 
-        self.place_box.set_folder(view.folder)
+        GObject.idle_add(self.place_box.set_folder, view.folder)
         self.place_box.button_left.set_sensitive(bool(view.history))
         self.place_box.button_right.set_sensitive(bool(view.history))
         self.place_box.button_up.set_sensitive(view.folder != G.SYSTEM_DIR)
         self.lateral_view.select_item(self.folder)
         self.scan_folder.set_folder(view.folder)
-        self.scan_folder.scan(force=force)
+        self.scan_folder.scan(force=update_icons)
 
     def update_icons(self, scan_folder, paths):
         view = self.get_actual_view()
