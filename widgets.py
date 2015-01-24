@@ -331,7 +331,8 @@ class LateralView(Gtk.ScrolledWindow):
 class Notebook(Gtk.Notebook):
 
     __gsignals__ = {
-        'new-page': (GObject.SIGNAL_RUN_FIRST, None, [str])
+        'new-page': (GObject.SIGNAL_RUN_FIRST, None, [str]),
+        'remove-page': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         }
 
     def __init__(self):
@@ -348,13 +349,16 @@ class Notebook(Gtk.Notebook):
     def __new_page_without_path(self, *args):
         self.emit('new-page', '')
 
+    def __close_page(self, button, view):
+        self.emit('remove-page', view)
+
     def create_page_from_path(self, path):
         hbox = Gtk.HBox()
         label = Gtk.Label(G.Dirs()[path])
         button = Gtk.ToolButton.new_from_stock(Gtk.STOCK_CLOSE)
         view = View(path)
 
-        self.set_show_tabs(bool(self.get_children()))
+        button.connect('clicked', self.__close_page, view)
 
         hbox.pack_start(label, False, False, 10)
         hbox.pack_end(button, False, False, 0)
@@ -362,6 +366,7 @@ class Notebook(Gtk.Notebook):
         hbox.show_all()
         self.show_all()
 
+        self.set_show_tabs(len(self.get_children()) > 1)
         self.set_current_page(self.get_n_pages() - 1)
 
         return view

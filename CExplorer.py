@@ -60,6 +60,7 @@ class CExplorer(Gtk.Window):
         self.lateral_view.connect('item-selected', self.__item_selected)
         self.notebook.connect('switch-page', self.__switch_page)
         self.notebook.connect('new-page', lambda w, p: self.new_page(p))
+        self.notebook.connect('remove-page', self.__remove_page_from_notebook)
         self.scan_folder.connect('files-changed', self.update_icons)
 
         self.paned.pack1(self.lateral_view, False)
@@ -100,6 +101,23 @@ class CExplorer(Gtk.Window):
 
     def __switch_page(self, notebook, view, page):
         GObject.idle_add(self.update_widgets, view=view)
+
+    def __remove_page_from_notebook(self, notebook, view):
+        idx = self.notebook.get_children().index(view)
+        self.remove_page(idx)
+
+    def remove_page(self, idx=None, view=None):
+        if not view:
+            if idx is None:
+                idx = self.get_current_page()
+
+            view = self.notebook.get_children()[idx]
+
+        self.notebook.remove(view)
+        if not self.notebook.get_children():
+            self.new_page()
+
+        self.notebook.set_show_tabs(len(self.notebook.get_children()) > 1)
 
     def set_folder(self, folder):
         readable, writable = G.get_access(folder)
