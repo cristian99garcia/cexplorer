@@ -365,8 +365,15 @@ class PlaceBox(Gtk.HeaderBar):
         self.add(self.hbox)
 
     def set_folder(self, folder):
+        folder = folder.replace('//', '/')
+        folder = folder.replace('//', '/')
+        self.folder = self.folder.replace('//', '/')
+        self.folder = self.folder.replace('//', '/')
+
         if self.show_buttons:
-            if self.folder.startswith(folder) and self.buttonbox.get_children() and not len(G.HOME_DIR) > len(folder):
+            if self.folder.startswith(folder) and \
+                self.buttonbox.get_children() and self.folder != G.HOME_DIR:
+
                 self.folder = folder
                 return
 
