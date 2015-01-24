@@ -119,9 +119,6 @@ class CExplorer(Gtk.Window):
         idx = self.notebook.get_current_page()
         return self.notebook.get_children()[idx]
 
-    def __infobar_response(self, infobar, response):
-        infobar.hide()
-
 
 if __name__ == '__main__':
     CExplorer()
