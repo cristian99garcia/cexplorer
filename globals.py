@@ -83,6 +83,9 @@ class Dirs(object):
                       VIDEOS_NAME,
                       SYSTEM_NAME]
 
+        self.specials_dirs = {HOME_DIR: HOME_NAME,
+                              SYSTEM_DIR: SYSTEM_NAME}
+
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
             cls._instance = super(Dirs, cls).__new__(cls, *args, **kwargs)
@@ -92,20 +95,17 @@ class Dirs(object):
     def __getitem__(self, name):
         """
         >>> dirs = Dirs()
-        >>> print dirs[HOME_NAME]  # Get directory from user directory name
-        ... '/home/cristian'
-
-        >>> print dirs[HOME_DIR]  # Get directory name from a user directory
+        >>> print dirs[HOME_DIR]  # Get directory name a special directory
         ... 'Personal folder'
+
+        >>> print dirs[SYSTEM_DIR]
+        ... 'Equipment'
 
         >>> print dirs['/home/cristian/']  # Get name from another directory
         ... 'cristian'
         """
-        if name in self.dirs:
-            return self.names[self.dirs.index(name)]
-
-        elif name in self.names:
-            return self.dirs[self.names.index(name)]
+        if name in self.specials_dirs:
+            return self.specials_dirs[name]
 
         else:
             path, name = os.path.split(name)

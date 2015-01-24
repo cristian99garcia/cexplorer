@@ -91,7 +91,7 @@ class View(Gtk.ScrolledWindow):
                 files.append(path)
 
         for path in folders + files:
-            name = G.Dirs()[path]
+            name = self.dirs[path]
             pixbuf = G.get_pixbuf_from_path(path)
 
             self.model.append([name, pixbuf])
@@ -317,6 +317,9 @@ class PlaceBox(Gtk.HeaderBar):
 
         self.hbox = Gtk.HBox()
         self.place_buttonbox = Gtk.HBox()
+        self.show_buttons = True
+        self.buttons = []
+        self.folder = G.HOME_DIR
 
         self.set_show_close_button(True)
 
@@ -345,24 +348,74 @@ class PlaceBox(Gtk.HeaderBar):
         self.button_up.add(arrow)
         self.navigate_buttonbox.add(self.button_up)
 
+        self.buttonbox = Gtk.HBox()
+        Gtk.StyleContext.add_class(self.buttonbox.get_style_context(), 'linked')
+
         self.entry = Gtk.Entry()
         self.entry.set_placeholder_text('Select a directory')
         self.entry.connect('activate', self.__change_directory)
 
-        self.entry.set_text(G.HOME_DIR)
+        #self.entry.set_text(G.HOME_DIR)
+        self.set_folder(G.HOME_DIR)
 
         self.hbox.pack_start(self.navigate_buttonbox, False, False, 10)
-        self.hbox.pack_start(self.entry, True, True, 0)
+        #self.hbox.pack_start(self.entry, True, True, 0)
+        self.hbox.pack_start(self.buttonbox, True, True, 0)
         self.add(self.hbox)
 
     def set_folder(self, folder):
-        # FIXME: cuando se cree la botonera, hay que fijarse si esta
-        #        seleccionada la opción de visualizar la ruta de este modo
+        # FIXME: cuando se está en la carpeta personal y se hace clic en "go_up"
+        #        deben cambiar los botones
+
+        if self.show_buttons:
+            if self.folder.startswith(folder) and self.buttonbox.get_children():
+                self.folder = folder
+                return
+
+            self.folder = folder
+
+            del self.buttons
+            self.buttons = []
+
+            while self.buttonbox.get_children():
+                self.buttonbox.remove(self.buttonbox.get_children()[0])
+
+            if folder.startswith(G.HOME_DIR):
+                self.buttons.append(G.HOME_NAME)
+                folder = folder[len(G.HOME_DIR):]
+                folder = folder[1:] if folder.startswith('/') else folder
+
+            for x in folder.split('/'):
+                if x:
+                    self.buttons.append(x)
+
+            path = ''
+            for x in self.buttons:
+                if x == G.HOME_NAME:
+                    path += G.HOME_DIR + '/'
+
+                else:
+                    if not path.endswith('/'):
+                        path += '/'
+
+                    path += x + '/'
+
+                label = Gtk.Label(x)
+                label.modify_font(Pango.FontDescription('Bold 12'))
+                button = Gtk.Button()
+                button.path = path
+                button.connect('clicked', self.__button_clicked)
+                button.add(label)
+                self.buttonbox.add(button)
 
         self.entry.set_text(folder)
+        self.show_all()
 
     def __go(self, widget, direction):
         self.emit(direction)
 
     def __change_directory(self, entry):
         self.emit('change-directory', entry.get_text())
+
+    def __button_clicked(self, button):
+        self.emit('change-directory', button.path)

@@ -51,6 +51,7 @@ class CExplorer(Gtk.Window):
         self.connect('destroy', Gtk.main_quit)
         self.connect('check-resize', self.__size_changed_cb)
         self.place_box.connect('go-up', self.go_up)
+        self.place_box.connect('change-directory', self.__item_selected)
         self.lateral_view.connect('item-selected', self.__item_selected)
         self.notebook.connect('switch-page', self.update_widgets)
         self.notebook.connect('new-page', lambda w, p: self.new_page(p))
