@@ -57,7 +57,7 @@ class CExplorer(Gtk.Window):
         self.place_box.connect('go-up', self.go_up)
         self.place_box.connect('change-directory', self.__item_selected)
         self.lateral_view.connect('item-selected', self.__item_selected)
-        #self.notebook.connect('switch-page', self.update_widgets)
+        self.notebook.connect('switch-page', self.update_widgets)
         self.notebook.connect('new-page', lambda w, p: self.new_page(p))
         self.scan_folder.connect('files-changed', self.update_icons)
 
@@ -135,7 +135,6 @@ class CExplorer(Gtk.Window):
         self.place_box.button_left.set_sensitive(bool(view.history))
         self.place_box.button_right.set_sensitive(bool(view.history))
         self.place_box.button_up.set_sensitive(view.folder != G.SYSTEM_DIR)
-        print 'update_widgets', self.folder
         self.lateral_view.select_item(self.folder)
         self.scan_folder.set_folder(view.folder)
         self.scan_folder.scan(force=force)
