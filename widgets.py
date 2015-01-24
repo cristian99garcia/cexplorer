@@ -319,6 +319,7 @@ class PlaceBox(Gtk.HeaderBar):
         self.place_buttonbox = Gtk.HBox()
         self.show_buttons = True
         self.buttons = []
+        self.dirs = G.Dirs()
         self.folder = G.HOME_DIR
 
         self.set_show_close_button(True)
@@ -364,11 +365,8 @@ class PlaceBox(Gtk.HeaderBar):
         self.add(self.hbox)
 
     def set_folder(self, folder):
-        # FIXME: cuando se está en la carpeta personal y se hace clic en "go_up"
-        #        deben cambiar los botones
-
         if self.show_buttons:
-            if self.folder.startswith(folder) and self.buttonbox.get_children():
+            if self.folder.startswith(folder) and self.buttonbox.get_children() and not len(G.HOME_DIR) > len(folder):
                 self.folder = folder
                 return
 
@@ -376,6 +374,9 @@ class PlaceBox(Gtk.HeaderBar):
 
             del self.buttons
             self.buttons = []
+
+            if not folder.startswith(G.HOME_DIR):
+                self.buttons.append('/')
 
             while self.buttonbox.get_children():
                 self.buttonbox.remove(self.buttonbox.get_children()[0])
@@ -399,6 +400,9 @@ class PlaceBox(Gtk.HeaderBar):
                         path += '/'
 
                     path += x + '/'
+
+                if x == G.SYSTEM_DIR:
+                    x = self.dirs[G.SYSTEM_DIR]
 
                 label = Gtk.Label(x)
                 label.modify_font(Pango.FontDescription('Bold 12'))
