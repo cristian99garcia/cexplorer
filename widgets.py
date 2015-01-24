@@ -110,8 +110,6 @@ class View(Gtk.ScrolledWindow):
         return directory
 
     def show_icons(self, paths):
-        self.model.clear()
-
         folders = []
         files = []
 
