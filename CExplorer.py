@@ -166,7 +166,8 @@ class CExplorer(Gtk.Window):
 
     def update_icons(self, scan_folder, paths):
         view = self.get_actual_view()
-        view.show_icons(paths)
+        view.model.clear()
+        GObject.idle_add(view.show_icons, paths)
 
     def get_actual_view(self):
         if not self.other_view:

@@ -18,6 +18,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 import os
+import re
 import ConfigParser
 from gettext import gettext as _
 
@@ -197,8 +198,8 @@ class ScanFolder(GObject.GObject):
                 elif os.path.isfile(filename):
                     files.append(filename)
 
-        directories.sort()
-        files.sort()
+        directories = natural_sort(directories)
+        files = natural_sort(files)
 
         return directories + files
 
@@ -285,3 +286,9 @@ def get_parent_directory(folder):
 def get_access(path):
     #  R_OK = Readable, W_OK = Writable
     return os.access(path, os.R_OK), os.access(path, os.W_OK)
+
+
+def natural_sort(_list):
+    convert = lambda text: int(text) if text.isdigit() else text.lower()
+    alphanum_key = lambda key: [convert(c) for c in re.split('([0-9]+)', key)]
+    return sorted(_list, key=alphanum_key)
