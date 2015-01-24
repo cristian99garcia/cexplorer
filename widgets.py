@@ -542,7 +542,7 @@ class StatusBar(Gtk.HBox):
         self.scale = Gtk.HScale.new_with_range(1, 8, 1)
         self.scale.set_draw_value(False)
         self.scale.set_value(self.icon_size)
-        self.scale.set_size_request(100, -1)
+        self.scale.set_size_request(200, -1)
         self.scale.connect('value-changed', self.__value_changed)
         self.pack_end(self.scale, False, False, 10)
 
