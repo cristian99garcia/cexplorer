@@ -57,7 +57,7 @@ class CExplorer(Gtk.Window):
         self.place_box.connect('go-up', self.go_up)
         self.place_box.connect('change-directory', self.__item_selected)
         self.lateral_view.connect('item-selected', self.__item_selected)
-        self.notebook.connect('switch-page', self.update_widgets)
+        #self.notebook.connect('switch-page', self.update_widgets)
         self.notebook.connect('new-page', lambda w, p: self.new_page(p))
         self.scan_folder.connect('files-changed', self.update_icons)
 
@@ -109,6 +109,8 @@ class CExplorer(Gtk.Window):
             self.infobar.set_msg(folder)
             self.infobar.show_all()
 
+        self.update_widgets(force=False)
+
     def go_up(self, *args):
         self.set_folder(G.get_parent_directory(self.folder))
 
@@ -118,11 +120,13 @@ class CExplorer(Gtk.Window):
         view.connect('item-selected', self.__item_selected)
         view.connect('multiple-selection', self.__multiple_selection)
 
-    def update_widgets(self, notebook=None, view=None, page=None):
+    def update_widgets(self, notebook=None, view=None, page=None, force=True):
         # FIXME: hay que fijarse la posición actual con respecto al historial
         #        para poder hacer set_sensitive
 
-        view = self.get_actual_view() if not view else view
+        if not view or not isinstance(view, Gtk.ScrolledWindow):
+            view = self.get_actual_view()
+
         self.view = view
         self.other_view = True
         self.folder = view.folder
@@ -131,9 +135,10 @@ class CExplorer(Gtk.Window):
         self.place_box.button_left.set_sensitive(bool(view.history))
         self.place_box.button_right.set_sensitive(bool(view.history))
         self.place_box.button_up.set_sensitive(view.folder != G.SYSTEM_DIR)
+        print 'update_widgets', self.folder
         self.lateral_view.select_item(self.folder)
         self.scan_folder.set_folder(view.folder)
-        self.scan_folder.scan(force=True)
+        self.scan_folder.scan(force=force)
 
     def update_icons(self, scan_folder, paths):
         view = self.get_actual_view()

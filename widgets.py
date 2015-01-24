@@ -310,6 +310,7 @@ class LateralView(Gtk.ScrolledWindow):
             self.emit('item-selected', item.path)
 
     def select_item(self, path):
+        print path
         for item in self.items:
             if item.path and not item.path.endswith('/'):
                 item.path += '/'
