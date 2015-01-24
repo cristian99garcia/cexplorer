@@ -79,6 +79,24 @@ class CExplorer(Gtk.Window):
         if os.path.isdir(path):
             self.set_folder(path)
 
+    def __multiple_selection(self, widget, paths):
+        # FIXME: falta abrir archivos
+
+        directories = 0
+        folders = []
+
+        for path in paths:
+            if os.path.isdir(path):
+                folders.append(path)
+                directories += 1
+
+        if directories == 1:
+            self.set_folder(folders[0])
+
+        elif directories > 1:
+            for folder in folders:
+                self.new_page(folder)
+
     def set_folder(self, folder):
         readable, writable = G.get_access(folder)
         if readable:
@@ -98,6 +116,7 @@ class CExplorer(Gtk.Window):
         path = G.HOME_DIR if not path else path
         view = self.notebook.create_page_from_path(path)
         view.connect('item-selected', self.__item_selected)
+        view.connect('multiple-selection', self.__multiple_selection)
 
     def update_widgets(self, notebook=None, view=None, page=None):
         # FIXME: hay que fijarse la posición actual con respecto al historial
@@ -108,6 +127,7 @@ class CExplorer(Gtk.Window):
         self.other_view = True
         self.folder = view.folder
 
+        self.place_box.set_folder(view.folder)
         self.place_box.button_left.set_sensitive(bool(view.history))
         self.place_box.button_right.set_sensitive(bool(view.history))
         self.place_box.button_up.set_sensitive(view.folder != G.SYSTEM_DIR)

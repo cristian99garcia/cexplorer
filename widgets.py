@@ -32,7 +32,8 @@ from gi.repository import GdkPixbuf
 class View(Gtk.ScrolledWindow):
 
     __gsignals__ = {
-        'item-selected': (GObject.SIGNAL_RUN_FIRST, None, [str])
+        'item-selected': (GObject.SIGNAL_RUN_FIRST, None, [str]),
+        'multiple-selection': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         }
 
     def __init__(self, folder):
@@ -44,14 +45,33 @@ class View(Gtk.ScrolledWindow):
         self.model = Gtk.ListStore(str, GdkPixbuf.Pixbuf)
         self.view = Gtk.IconView()
 
+        self.view.set_text_column(0)
+        self.view.set_can_focus(True)
+        self.view.set_pixbuf_column(1)
         self.view.set_model(self.model)
         self.view.set_selection_mode(Gtk.SelectionMode.MULTIPLE)
-        self.view.set_text_column(0)
-        self.view.set_pixbuf_column(1)
+        self.add_events(Gdk.EventMask.KEY_RELEASE_MASK)
 
+        self.view.connect('key-release-event', self.__key_release_event_cb)
         self.view.connect('button-press-event', self.__button_press_event_cb)
 
         self.add(self.view)
+
+    def __key_release_event_cb(self, view, event):
+        key = G.KEYS.get(event.keyval, False)
+
+        if key == 'Enter':
+            paths = []
+
+            for path in self.view.get_selected_items():
+                treeiter = self.model.get_iter(path)
+                paths.append(self.get_path_from_treeiter(treeiter))
+
+            if len(paths) == 1:
+                self.emit('item-selected', paths[0])
+
+            elif len(paths) >= 1:
+                self.emit('multiple-selection', paths)
 
     def __button_press_event_cb(self, view, event):
         # FIXME: Hay que fijarse por un event.button == 3
@@ -62,22 +82,27 @@ class View(Gtk.ScrolledWindow):
         if event.button != 1:
             return
 
-        try:
-            path = view.get_path_at_pos(int(event.x), int(event.y))
-            iter = self.model.get_iter(path)
-            name = self.model.get_value(iter, 0)
-            directory = os.path.join(self.folder, name)
+        path = view.get_path_at_pos(int(event.x), int(event.y))
+        if not path:
+            return
 
-            if name == G.HOME_NAME:
-                directory = G.HOME_DIR
+        treeiter = self.model.get_iter(path)
+        directory = self.get_path_from_treeiter(treeiter)
 
-            if event.type.value_name == 'GDK_2BUTTON_PRESS':
-                directory = directory.replace('//', '/')
-                directory = directory.replace('//', '/')
-                self.emit('item-selected', directory)
+        if event.type.value_name == 'GDK_2BUTTON_PRESS':
+            self.emit('item-selected', directory)
 
-        except TypeError:
-            pass
+    def get_path_from_treeiter(self, treeiter):
+        name = self.model.get_value(treeiter, 0)
+        directory = os.path.join(self.folder, name)
+
+        if name == G.HOME_NAME:
+            directory = G.HOME_DIR
+
+        directory = directory.replace('//', '/')
+        directory = directory.replace('//', '/')
+
+        return directory
 
     def show_icons(self, paths):
         self.model.clear()

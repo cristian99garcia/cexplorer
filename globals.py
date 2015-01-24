@@ -53,6 +53,7 @@ VIDEOS_NAME = _('Videos')
 SYSTEM_DIR = '/'
 SYSTEM_NAME = _('Equipment')
 
+KEYS = {65293: 'Enter'}
 
 class Dirs(object):
     """
