@@ -18,6 +18,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 import os
+import ConfigParser
 from gettext import gettext as _
 
 from gi.repository import Gio
@@ -112,6 +113,13 @@ class Dirs(object):
             return self.specials_dirs[name]
 
         else:
+            if name.endswith('.desktop'):
+                cfg = ConfigParser.ConfigParser()
+                cfg.read([name])
+
+                if cfg.has_option('Desktop Entry', 'Name'):
+                    return cfg.get('Desktop Entry', 'Name')
+
             path, name = os.path.split(name)
             return name if name else path
 
@@ -209,6 +217,7 @@ def get_pixbuf_from_path(path, size=None):
     info = gfile.query_info('standard::icon', Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, None)
     icon = info.get_icon()
     types = icon.get_names()
+    pixbuf = None
 
     if 'text-x-generic' in types:
         types.remove('text-x-generic')
@@ -232,12 +241,13 @@ def get_pixbuf_from_path(path, size=None):
 
             else:
                 name = cfg.get('Desktop Entry', 'Icon')
-                return icon_theme.load_icon(name, size, 0)
+                try:
+                    pixbuf = icon_theme.load_icon(name, size, 0)
 
-        else:
-            return icon_theme.load_icon(icon, size, 0)
+                except:
+                    pixbuf = None
 
-    else:
+    if not pixbuf:
         try:
             return icon_theme.choose_icon(types, size, 0).load_icon()
 
