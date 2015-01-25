@@ -153,6 +153,7 @@ class CExplorer(Gtk.Window):
     def new_page(self, path=''):
         path = G.HOME_DIR if not path else path
         view = self.notebook.create_page_from_path(path)
+        view.icon_size = self.icon_size
         view.connect('selection-changed', self.__update_statusbar)
         view.connect('item-selected', self.__item_selected)
         view.connect('multiple-selection', self.__multiple_selection)
