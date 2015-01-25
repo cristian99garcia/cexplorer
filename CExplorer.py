@@ -83,6 +83,7 @@ class CExplorer(Gtk.Window):
         self.place_box.entry.set_size_request(self.get_size()[0] / 2, -1)
 
     def __item_selected(self, widget, path):
+        # FIXME: Hay que actualizar las etiquetas de las pestañas
         if os.path.isdir(path):
             self.set_folder(path)
 

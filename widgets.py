@@ -49,6 +49,9 @@ class View(Gtk.ScrolledWindow):
         self.dirs = G.Dirs()
         self.model = Gtk.ListStore(str, GdkPixbuf.Pixbuf)
         self.view = Gtk.IconView()
+        self.menu = None
+        self.sort = G.SORT_BY_NAME
+        self.reverse = False
 
         self.view.set_text_column(0)
         self.view.set_can_focus(True)
@@ -83,14 +86,25 @@ class View(Gtk.ScrolledWindow):
                 self.emit('multiple-selection', paths)
 
     def __button_press_event_cb(self, view, event):
-        # FIXME: Hay que fijarse por un event.button == 3
-        #        para crear el popup menu
+        path = view.get_path_at_pos(int(event.x), int(event.y))
+        selection = view.get_selected_items()
 
         if event.button == 3:
-            self.create_menu(event.x, event.y, event.time)
-            return
+            if path:
+                treeiter = self.model.get_iter(path)
+                directory = self.get_path_from_treeiter(treeiter)
+                if path not in selection:
+                    self.view.unselect_all()
 
-        path = view.get_path_at_pos(int(event.x), int(event.y))
+                self.view.select_path(path)
+
+            else:
+                directory = self.folder
+
+            self.make_menu(directory)
+            self.menu.popup(None, None, None, None, event.button, event.time)
+            return True
+
         if not path:
             return
 
@@ -102,6 +116,80 @@ class View(Gtk.ScrolledWindow):
 
         if event.button == 1 and event.type.value_name == 'GDK_2BUTTON_PRESS':
             self.emit('item-selected', directory)
+
+    def make_menu(self, path):
+        writable, readable = G.get_access(path)
+        selection = self.view.get_selected_items()
+        self.menu = Gtk.Menu()
+
+        if path != self.folder:
+            item = Gtk.MenuItem(_('Open'))
+            item.connect('activate', self.__open_from_menu, path)
+            item.set_sensitive(readable)
+            self.menu.append(item)
+
+            if os.path.isdir(path):
+                item = Gtk.MenuItem(_('Open in new tab'))
+                item.connect('activate', self.__open_from_menu, None, True)
+                self.menu.append(item)
+
+            self.menu.append(Gtk.SeparatorMenuItem())
+
+        item = Gtk.MenuItem(_('Create a folder'))
+        self.menu.append(item)
+
+        self.menu.append(Gtk.SeparatorMenuItem())
+
+        item = Gtk.MenuItem(_('Sort items'))
+        menu = Gtk.Menu()
+        item.set_submenu(menu)
+        self.menu.append(item)
+
+        self.menu.append(Gtk.SeparatorMenuItem())
+
+        item_name = Gtk.RadioMenuItem(_('By name'))
+        item_name.set_active(self.sort == G.SORT_BY_NAME)
+        item_name.connect('activate', self.__sort_changed, G.SORT_BY_NAME)
+        menu.append(item_name)
+
+        item_size = Gtk.RadioMenuItem(_('By size'), group=item_name)
+        item_size.set_active(self.sort == G.SORT_BY_SIZE)
+        item_size.connect('activate', self.__sort_changed, G.SORT_BY_SIZE)
+        menu.append(item_size)
+
+        menu.append(Gtk.SeparatorMenuItem())
+
+        item = Gtk.CheckMenuItem(_('Reverse'))
+        item.set_active(self.reverse)
+        item.connect('activate', self.__reverse_changed)
+        menu.append(item)
+
+        item = Gtk.MenuItem(_('Properties'))
+        self.menu.append(item)
+
+        self.menu.show_all()
+
+    def __open_from_menu(self, item, path=None, new_page=False):
+        selected = len(self.view.get_selected_items())
+        paths = []
+
+        for path in self.view.get_selected_items():
+            treeiter = self.model.get_iter(path)
+            paths.append(self.get_path_from_treeiter(treeiter))
+
+        if not new_page:
+            self.emit('item-selected', paths[0])
+            for path in paths[1:]:
+                self.emit('new-page', path)
+
+        elif new_page:
+            self.emit('multiple-selection', paths)
+
+    def __sort_changed(self, item, sort):
+        self.sort = sort
+
+    def __reverse_changed(self, item):
+        self.reverse = not self.reverse
 
     def set_icon_size(self, icon_size):
         GObject.idle_add(self.model.clear)
@@ -143,9 +231,6 @@ class View(Gtk.ScrolledWindow):
             name = self.dirs[path]
             pixbuf = G.get_pixbuf_from_path(path, self.icon_size)
             self.model.append([name, pixbuf])
-
-    def create_menu(self, x, y, time):
-        print x, y, time
 
 
 class InfoBar(Gtk.InfoBar):

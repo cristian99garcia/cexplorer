@@ -38,6 +38,9 @@ COLOR_SELECTED = Gdk.color_parse('#4A90D9')
 MSG_UNREADABLE_TITLE = _('Could not be displayed here.')
 MSG_UNREADABLE_CONTENT = _('You do not have sufficient permissions to view the content of @.')
 
+SORT_BY_NAME = 0
+SORT_BY_SIZE = 1
+
 HOME_DIR = os.path.expanduser('~')
 HOME_NAME = _('Personal folder')
 DESKTOP_DIR = GLib.get_user_special_dir(GLib.USER_DIRECTORY_DESKTOP)
