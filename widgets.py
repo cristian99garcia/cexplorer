@@ -443,12 +443,12 @@ class PlaceBox(Gtk.HBox):
 
         self.buttonbox = Gtk.HBox()
         Gtk.StyleContext.add_class(self.buttonbox.get_style_context(), 'linked')
-        #self.hbox.pack_start(self.buttonbox, True, True, 0)
+        self.hbox.pack_start(self.buttonbox, True, True, 10)
 
         self.entry = Gtk.Entry()
         self.entry.set_placeholder_text('Select a directory')
         self.entry.connect('activate', self.__change_directory)
-        self.hbox.pack_start(self.entry, True, True, 10)
+        #self.hbox.pack_start(self.entry, True, True, 10)
 
         button_close = Gtk.ToolButton(icon_name='window-close')
         button_close.connect('clicked', self.__close)
@@ -519,7 +519,7 @@ class PlaceBox(Gtk.HBox):
                 button.path = path
                 button.connect('clicked', self.__button_clicked)
                 button.add(label)
-                self.buttonbox.add(button)
+                self.buttonbox.pack_start(button, False, False, 0)
 
         self.show_all()
 

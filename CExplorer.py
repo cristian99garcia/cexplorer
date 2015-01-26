@@ -58,7 +58,6 @@ class CExplorer(Gtk.Window):
         self.set_titlebar(self.place_box)
 
         self.connect('destroy', Gtk.main_quit)
-        self.connect('check-resize', self.__size_changed_cb)
         self.place_box.connect('go-up', self.go_up)
         self.place_box.connect('change-directory', self.__item_selected)
         self.lateral_view.connect('item-selected', self.__item_selected)
@@ -79,9 +78,6 @@ class CExplorer(Gtk.Window):
         self.show_all()
         self.infobar.hide()
 
-    def __size_changed_cb(self, widget):
-        #self.place_box.entry.set_size_request(self.get_size()[0] / 2, -1)
-        pass
     def __item_selected(self, widget, path):
         # FIXME: Hay que actualizar las etiquetas de las pestañas
 
