@@ -68,7 +68,7 @@ class CExplorer(Gtk.Window):
         self.statusbar.connect('icon-size-changed', self.__icon_size_changed)
 
         self.lateral_view.select_item(G.HOME_DIR)
-        self.paned.pack1(self.lateral_view, False)
+        self.paned.pack1(self.lateral_view, False, True)
         self.paned.pack2(self.notebook, True)
         self.vbox.pack_start(self.infobar, False, False, 0)
         self.vbox.pack_start(self.paned, True, True, 2)
@@ -79,8 +79,6 @@ class CExplorer(Gtk.Window):
         self.infobar.hide()
 
     def __item_selected(self, widget, path):
-        # FIXME: Hay que actualizar las etiquetas de las pestañas
-
         if os.path.isdir(path) and path != self.folder:
             self.set_folder(path)
 

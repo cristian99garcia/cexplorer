@@ -288,6 +288,7 @@ class LateralView(Gtk.ScrolledWindow):
         self.view.append_column(col_name)
 
         self.view.set_model(self.model)
+        self.view.set_headers_visible(False)
 
         for x in self.dirs:
             pixbuf = self.dirs.get_pixbuf_symbolic(x)
@@ -297,6 +298,8 @@ class LateralView(Gtk.ScrolledWindow):
         #self.volume_monitor.connect('mount-removed', self.remove_mount)
 
         self.select_item(G.HOME_DIR)
+        self.set_size_request(200, -1)
+
         self.selection.connect('changed', self.__selection_changed)
         self.add(self.view)
 
@@ -455,7 +458,10 @@ class PlaceBox(Gtk.HBox):
         self.entry.connect('activate', self.__change_directory)
         #self.hbox.pack_start(self.entry, True, True, 10)
 
-        button_close = Gtk.ToolButton(icon_name='window-close')
+        button_close = Gtk.Button()
+        image = Gtk.Image.new_from_icon_name('window-close', Gtk.IconSize.BUTTON)
+        button_close.set_relief(Gtk.ReliefStyle.NONE)
+        button_close.add(image)
         button_close.connect('clicked', self.__close)
         self.hbox.pack_start(button_close, False, False, 0)
 
@@ -469,10 +475,8 @@ class PlaceBox(Gtk.HBox):
         #        cuando haya que abrir una dirección larga, se agrandara la
         #        ventana
 
-        folder = folder.replace('//', '/')
-        folder = folder.replace('//', '/')
-        self.folder = self.folder.replace('//', '/')
-        self.folder = self.folder.replace('//', '/')
+        folder = G.clear_path(folder)
+        self.folder = G.clear_path(self.folder)
         self.entry.set_text(folder)
 
         if self.show_buttons:

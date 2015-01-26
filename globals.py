@@ -360,4 +360,7 @@ def clear_path(path):
     if not path.endswith('/'):
         path += '/'
 
+    path = path.replace('//', '/')
+    path = path.replace('//', '/')
+
     return path
