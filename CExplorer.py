@@ -176,6 +176,7 @@ class CExplorer(Gtk.Window):
         self.lateral_view.select_item(self.folder)
         self.scan_folder.set_folder(view.folder)
         self.scan_folder.scan(force=update_icons)
+        self.notebook.update_label(view)
 
     def update_icons(self, scan_folder, paths):
         view = self.get_actual_view()
