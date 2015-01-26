@@ -306,42 +306,6 @@ class TreeViewItem(Gtk.EventBox):
             self.modify_bg(Gtk.StateType.NORMAL, G.COLOR_SELECTED)
 
 
-class TreeViewMountItem(Gtk.HBox):
-
-    def __init__(self, device, selected):
-        Gtk.HBox.__init__(self)
-
-        self.selected = selected
-        self.mounted = False
-        self.path = None
-
-        if hasattr(device, 'get_default_location'):
-            self.path = device.get_default_location().get_path()
-
-        icons = device.get_icon().get_names()
-        icon_theme = Gtk.IconTheme()
-        pixbuf = icon_theme.choose_icon(icons, G.DEFAULT_ITEM_ICON_SIZE, 0).load_icon()
-        self.image = Gtk.Image.new_from_pixbuf(pixbuf)
-        self.label = Gtk.Label(device.get_name())
-        self.label.modify_font(Pango.FontDescription('Bold 12'))
-
-        self.set_selected(selected)
-
-        self.pack_start(self.image, False, False, 10)
-        self.pack_start(self.label, False, False, 0)
-
-    def set_selected(self, selected):
-        self.selected = selected
-
-        if not selected:
-            self.modify_bg(Gtk.StateType.NORMAL, G.COLOR_UNSELECTED)
-            self.label.modify_fg(Gtk.StateType.NORMAL, Gdk.color_parse('#000000'))
-
-        else:
-            self.label.modify_fg(Gtk.StateType.NORMAL, Gdk.color_parse('#FFFFFF'))
-            self.modify_bg(Gtk.StateType.NORMAL, G.COLOR_SELECTED)
-
-
 class LateralView(Gtk.ScrolledWindow):
 
     __gsignals__ = {
@@ -351,33 +315,68 @@ class LateralView(Gtk.ScrolledWindow):
     def __init__(self):
         Gtk.ScrolledWindow.__init__(self)
 
-        self.items = []
-        self.label_mount_added = False
-        self.dirs = G.Dirs()
-        self.view = Gtk.VBox()
         self.volume_monitor = Gio.VolumeMonitor.get()
+        self.model = Gtk.ListStore(GdkPixbuf.Pixbuf, str, str)
+        self.view = Gtk.TreeView()
+        self.selection = self.view.get_selection()
+        self.dirs = G.Dirs()
+        self.folder = None
 
-        self.set_size_request(200, -1)
-        self.view.modify_bg(Gtk.StateType.NORMAL, G.COLOR_UNSELECTED)
+        cell_icon = Gtk.CellRendererPixbuf()
+        col_icon = Gtk.TreeViewColumn('Icon', cell_icon, pixbuf=0)
+        self.view.append_column(col_icon)
 
-        self.append_section(_('Personal'))
+        cell_name = Gtk.CellRendererText()
+        cell_name.props.font = 'Bold 15'
+        col_name = Gtk.TreeViewColumn('Folder', cell_name, text=1)
+        self.view.append_column(col_name)
 
-        for path in self.dirs:
-            self.append_item(path, selected=path==G.HOME_DIR)
+        self.view.set_model(self.model)
 
-        for device in self.volume_monitor.get_volumes():
-            self.add_device(device)
+        for x in self.dirs:
+            pixbuf = self.dirs.get_pixbuf_symbolic(x)
+            self.model.append([pixbuf, self.dirs[x], x])
 
-        self.volume_monitor.connect('mount-added', self.add_mount)
-        self.volume_monitor.connect('mount-removed', self.remove_mount)
+        #self.volume_monitor.connect('mount-added', self.add_mount)
+        #self.volume_monitor.connect('mount-removed', self.remove_mount)
 
+        self.select_item(G.HOME_DIR)
+        self.selection.connect('changed', self.__selection_changed)
         self.add(self.view)
-        self.show_all()
 
-    def add_mount(self, deamon, device):
-        self.add_device(device)
+    def __selection_changed(self, selection):
+        model, treeiter = selection.get_selected()
+        if treeiter and model.get_value(treeiter, 2) != self.folder:
+            self.folder = model.get_value(treeiter, 2)
+            self.emit('item-selected', self.folder)
 
-    def add_device(self, device):
+    def select_item(self, path):
+        path = G.clear_path(path)
+        if self.folder:
+            self.folder = G.clear_path(self.folder)
+
+        if path != self.folder:
+            self.selection.unselect_all()
+
+        if not self.folder:
+            self.folder = G.HOME_DIR
+
+        if not path in self.dirs:
+            # FIXME: hay que fijarse en los puntos de montaje(usb,
+            #        disco extraíbles, etc)
+            return
+
+        for row in self.model:
+            treeiter = row.iter
+            folder = G.clear_path(self.model.get_value(treeiter, 2))
+
+            if folder == path and path != self.folder:
+                self.view.set_cursor(row.path.get_indices()[0])
+                self.folder = path
+                break
+
+    """
+    def add_mount(self, device):
         if not self.label_mount_added:
             self.label_mount_added = True
             self.append_section(_('Mounts'))
@@ -388,45 +387,9 @@ class LateralView(Gtk.ScrolledWindow):
 
         item.show_all()
 
-    def append_section(self, name):
-        hbox = Gtk.HBox()
-        label = Gtk.Label(name)
-        label.modify_font(Pango.FontDescription('Bold 12'))
-
-        if name != _('Personal'):
-            vbox = Gtk.VBox()
-            vbox.set_size_request(-1, 20)
-            self.view.pack_start(vbox, False, False, 0)
-
-        self.view.pack_start(label, False, False, 0)
-        self.show_all()
-
-    def append_item(self, path, selected=False):
-        item = TreeViewItem(path, selected)
-        item.connect('selected', self.__item_selected)
-        self.items.append(item)
-        self.view.pack_start(item, False, False, 0)
-        #self.show_all()
-
-    def remove_mount(self, deamon, device):
-        pass
-
-    def __item_selected(self, item):
-        for _item in self.items:
-            _item.set_selected(_item == item)
-
-        if item.path:
-            self.emit('item-selected', item.path)
-
-    def select_item(self, path):
-        for item in self.items:
-            if item.path and not item.path.endswith('/'):
-                item.path += '/'
-
-            if not path.endswith('/'):
-                path += '/'
-
-            item.set_selected(item.path == path)
+    def remove_mount(self, *args):
+        print args
+    """
 
 
 class Notebook(Gtk.Notebook):
@@ -626,7 +589,7 @@ class StatusBar(Gtk.HBox):
 
         self.scale = Gtk.HScale.new_with_range(1, 8, 1)
         self.scale.set_draw_value(False)
-        self.scale.set_value(self.icon_size)
+        self.scale.set_value(3)
         self.scale.set_size_request(200, -1)
         self.scale.connect('value-changed', self.__value_changed)
         self.pack_end(self.scale, False, False, 10)

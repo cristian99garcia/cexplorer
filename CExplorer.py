@@ -52,6 +52,7 @@ class CExplorer(Gtk.Window):
         self.infobar = InfoBar()
         self.statusbar = StatusBar()
 
+        self.new_page()
         self.resize(620, 480)
         self.set_title(self.folder_name)
         self.set_titlebar(self.place_box)
@@ -67,13 +68,12 @@ class CExplorer(Gtk.Window):
         self.scan_folder.connect('files-changed', self.update_icons)
         self.statusbar.connect('icon-size-changed', self.__icon_size_changed)
 
+        self.lateral_view.select_item(G.HOME_DIR)
         self.paned.pack1(self.lateral_view, False)
         self.paned.pack2(self.notebook, True)
         self.vbox.pack_start(self.infobar, False, False, 0)
         self.vbox.pack_start(self.paned, True, True, 2)
         self.vbox.pack_start(self.statusbar, False, False, 2)
-
-        self.new_page()
 
         self.add(self.vbox)
         self.show_all()
@@ -84,7 +84,8 @@ class CExplorer(Gtk.Window):
 
     def __item_selected(self, widget, path):
         # FIXME: Hay que actualizar las etiquetas de las pestañas
-        if os.path.isdir(path):
+
+        if os.path.isdir(path) and path != self.folder:
             self.set_folder(path)
 
     def __multiple_selection(self, widget, paths):
@@ -173,8 +174,8 @@ class CExplorer(Gtk.Window):
         self.folder = view.folder
 
         GObject.idle_add(self.place_box.set_folder, view.folder)
-        self.place_box.button_left.set_sensitive(bool(view.history))
-        self.place_box.button_right.set_sensitive(bool(view.history))
+        #self.place_box.button_left.set_sensitive(bool(view.history))
+        #self.place_box.button_right.set_sensitive(bool(view.history))
         self.place_box.button_up.set_sensitive(view.folder != G.SYSTEM_DIR)
         self.lateral_view.select_item(self.folder)
         self.scan_folder.set_folder(view.folder)

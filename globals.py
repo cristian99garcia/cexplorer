@@ -95,6 +95,15 @@ class Dirs(object):
         self.specials_dirs = {HOME_DIR: HOME_NAME,
                               SYSTEM_DIR: SYSTEM_NAME}
 
+        self.symbolic_icons = {HOME_DIR: 'go-home-symbolic',
+                               DESKTOP_DIR: 'user-desktop-symbolic',
+                               DOCUMENTS_DIR: 'folder-documents-symbolic',
+                               DOWNLOADS_DIR: 'folder-download-symbolic',
+                               MUSIC_DIR: 'folder-music-symbolic',
+                               PICTURES_DIR: 'folder-pictures-symbolic',
+                               VIDEOS_DIR: 'folder-videos-symbolic',
+                               SYSTEM_DIR: 'drive-harddisk-system-symbolic'}
+
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
             cls._instance = super(Dirs, cls).__new__(cls, *args, **kwargs)
@@ -144,13 +153,29 @@ class Dirs(object):
             elif name in self.names:
                 self.dirs[self.names.index(name)] = value
 
-
     def __iter__(self):
         for x in self.dirs:
             yield x
 
     def __contains__(self, name):
-        return name in self.dirs + self.names
+        if name in self.dirs + self.names:
+            return True
+
+        for x in self.dirs:
+            if not x.endswith('/'):
+                x += '/'
+
+            if not name.endswith('/'):
+                name += '/'
+
+            if name == x:
+                return True
+
+        return False
+
+    def get_pixbuf_symbolic(self, path):
+        icon_theme = Gtk.IconTheme()
+        return icon_theme.load_icon(self.symbolic_icons[path], 16, 0)
 
 
 class ScanFolder(GObject.GObject):
@@ -329,3 +354,10 @@ def get_size(path):
             size_str = 'TB'
 
         return 'Size: %d%s' % (size, size_str)
+
+
+def clear_path(path):
+    if not path.endswith('/'):
+        path += '/'
+
+    return path
