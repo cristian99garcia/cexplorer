@@ -262,50 +262,6 @@ class InfoBar(Gtk.InfoBar):
         self.msg.set_label(msg)
 
 
-class TreeViewItem(Gtk.EventBox):
-
-    __gsignals__ = {
-        'selected': (GObject.SIGNAL_RUN_FIRST, None, [])
-        }
-
-    def __init__(self, path, selected):
-        Gtk.EventBox.__init__(self)
-
-        self.selected = selected
-        self.hbox = Gtk.HBox()
-
-        pixbuf = G.get_pixbuf_from_path(path, size=G.DEFAULT_ITEM_ICON_SIZE)
-        image = Gtk.Image.new_from_pixbuf(pixbuf)
-        self.path = path
-        self.label = Gtk.Label(G.Dirs()[path])
-        self.label.modify_font(Pango.FontDescription('Bold 12'))
-
-        self.set_selected(self.selected)
-
-        self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK)
-        self.connect('button-press-event', self.__button_press_event_cb)
-
-        self.hbox.pack_start(image, False, False, 10)
-        self.hbox.pack_start(self.label, False, False, 0)
-        self.add(self.hbox)
-        self.show_all()
-
-    def __button_press_event_cb(self, widget, event):
-        if event.button == 1 and not self.selected:
-            self.emit('selected')
-
-    def set_selected(self, selected):
-        self.selected = selected
-
-        if not selected:
-            self.modify_bg(Gtk.StateType.NORMAL, G.COLOR_UNSELECTED)
-            self.label.modify_fg(Gtk.StateType.NORMAL, Gdk.color_parse('#000000'))
-
-        else:
-            self.label.modify_fg(Gtk.StateType.NORMAL, Gdk.color_parse('#FFFFFF'))
-            self.modify_bg(Gtk.StateType.NORMAL, G.COLOR_SELECTED)
-
-
 class LateralView(Gtk.ScrolledWindow):
 
     __gsignals__ = {
@@ -436,7 +392,7 @@ class Notebook(Gtk.Notebook):
         return view
 
 
-class PlaceBox(Gtk.HeaderBar):
+class PlaceBox(Gtk.HBox):
 
     __gsignals__ = {
         'go-back': (GObject.SIGNAL_RUN_FIRST, None, []),
@@ -446,56 +402,62 @@ class PlaceBox(Gtk.HeaderBar):
         }
 
     def __init__(self):
-        Gtk.HeaderBar.__init__(self)
+        Gtk.HBox.__init__(self)
 
+        self.vbox = Gtk.VBox()
         self.hbox = Gtk.HBox()
-        self.place_buttonbox = Gtk.HBox()
         self.show_buttons = True
         self.buttons = []
         self.dirs = G.Dirs()
         self.folder = G.HOME_DIR
 
-        self.set_show_close_button(True)
+        # HACK: Using more boxes, gtk errors are avoided.
+        self.vbox.set_margin_top(5)
+        self.vbox.set_margin_bottom(5)
+        self.hbox.set_margin_right(10)
+        self.hbox.set_margin_left(10)
 
-        self.navigate_buttonbox = Gtk.HBox()
         Gtk.StyleContext.add_class(
-            self.navigate_buttonbox.get_style_context(), 'linked')
+            self.get_style_context(), 'linked')
 
         self.button_left = Gtk.Button()
         arrow = Gtk.Arrow(Gtk.ArrowType.LEFT, Gtk.ShadowType.NONE)
         arrow.set_size_request(28, 28)
         self.button_left.connect('clicked', self.__go, 'go-back')
         self.button_left.add(arrow)
-        self.navigate_buttonbox.add(self.button_left)
+        self.hbox.pack_start(self.button_left, False, False, 0)
 
         self.button_right = Gtk.Button()
         arrow = Gtk.Arrow(Gtk.ArrowType.RIGHT, Gtk.ShadowType.NONE)
         arrow.set_size_request(28, 28)
         self.button_right.connect('clicked', self.__go, 'go-forward')
         self.button_right.add(arrow)
-        self.navigate_buttonbox.add(self.button_right)
+        self.hbox.pack_start(self.button_right, False, False, 0)
 
         self.button_up = Gtk.Button()
         arrow = Gtk.Arrow(Gtk.ArrowType.UP, Gtk.ShadowType.NONE)
         arrow.set_size_request(28, 28)
         self.button_up.connect('clicked', self.__go, 'go-up')
         self.button_up.add(arrow)
-        self.navigate_buttonbox.add(self.button_up)
+        self.hbox.pack_start(self.button_up, False, False, 0)
 
         self.buttonbox = Gtk.HBox()
         Gtk.StyleContext.add_class(self.buttonbox.get_style_context(), 'linked')
+        #self.hbox.pack_start(self.buttonbox, True, True, 0)
 
         self.entry = Gtk.Entry()
         self.entry.set_placeholder_text('Select a directory')
         self.entry.connect('activate', self.__change_directory)
+        self.hbox.pack_start(self.entry, True, True, 10)
 
-        #self.entry.set_text(G.HOME_DIR)
+        button_close = Gtk.ToolButton(icon_name='window-close')
+        button_close.connect('clicked', self.__close)
+        self.hbox.pack_start(button_close, False, False, 0)
+
         self.set_folder(G.HOME_DIR)
 
-        self.hbox.pack_start(self.navigate_buttonbox, False, False, 10)
-        #self.hbox.pack_start(self.entry, True, True, 0)
-        self.hbox.pack_start(self.buttonbox, True, True, 0)
-        self.add(self.hbox)
+        self.vbox.add(self.hbox)
+        self.add(self.vbox)
 
     def set_folder(self, folder):
         # FIXME: Hay que agregar botones de desplazamientos, de lo contrario
@@ -506,6 +468,7 @@ class PlaceBox(Gtk.HeaderBar):
         folder = folder.replace('//', '/')
         self.folder = self.folder.replace('//', '/')
         self.folder = self.folder.replace('//', '/')
+        self.entry.set_text(folder)
 
         if self.show_buttons:
             if self.folder.startswith(folder) and \
@@ -558,7 +521,6 @@ class PlaceBox(Gtk.HeaderBar):
                 button.add(label)
                 self.buttonbox.add(button)
 
-        self.entry.set_text(folder)
         self.show_all()
 
     def __go(self, widget, direction):
@@ -569,6 +531,9 @@ class PlaceBox(Gtk.HeaderBar):
 
     def __button_clicked(self, button):
         self.emit('change-directory', button.path)
+
+    def __close(self, button):
+        self.get_toplevel().destroy()
 
 
 class StatusBar(Gtk.HBox):
