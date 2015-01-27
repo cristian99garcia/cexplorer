@@ -36,6 +36,7 @@ class View(Gtk.ScrolledWindow):
         'new-page': (GObject.SIGNAL_RUN_FIRST, None, [str]),
         'multiple-selection': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         'selection-changed': (GObject.SIGNAL_RUN_FIRST, None, [object]),
+        'show-properties': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         }
 
     def __init__(self, folder):
@@ -165,6 +166,7 @@ class View(Gtk.ScrolledWindow):
         menu.append(item)
 
         item = Gtk.MenuItem(_('Properties'))
+        item.connect('activate', self.__show_properties)
         self.menu.append(item)
 
         self.menu.show_all()
@@ -190,6 +192,16 @@ class View(Gtk.ScrolledWindow):
 
     def __reverse_changed(self, item):
         self.reverse = not self.reverse
+
+    def __show_properties(self, item):
+        selected = len(self.view.get_selected_items())
+        paths = []
+
+        for path in self.view.get_selected_items():
+            treeiter = self.model.get_iter(path)
+            paths.append(self.get_path_from_treeiter(treeiter))
+
+        self.emit('show-properties', paths)
 
     def set_icon_size(self, icon_size):
         GObject.idle_add(self.model.clear)
@@ -619,3 +631,101 @@ class StatusBar(Gtk.HBox):
         if value != self.icon_size:
             self.icon_size = value
             self.emit('icon-size-changed', value * 16)
+
+
+class PropertiesWindow(Gtk.Dialog):
+
+    __gsignals__ = {
+        'rename-file': (GObject.SIGNAL_RUN_FIRST, None, [str]),
+        }
+
+    def __init__(self, paths):
+        Gtk.Dialog.__init__(self)
+
+        self.dirs = G.Dirs()
+        self.info_number = 0
+
+        hbox = Gtk.HBox()
+        self.vbox.pack_start(hbox, False, False, 0)
+
+        pixbuf = G.get_pixbuf_from_path(paths[0], size=64)
+        self.icon = Gtk.Image.new_from_pixbuf(pixbuf)
+        hbox.pack_start(self.icon, False, False, 5)
+
+        self.entry = Gtk.Entry()
+        self.entry.modify_font(Pango.FontDescription('20'))
+        self.entry.set_text(self.dirs[paths[0]])
+        self.entry.connect('activate', self.__rename_file)
+        if len(paths) == 1:
+            hbox.pack_start(self.entry, False, True, 10)
+
+        self.label = Gtk.Label('%d elements\nselecteds' % len(paths))
+        self.label.modify_font(Pango.FontDescription('20'))
+
+        if len(paths) > 1:
+            hbox.pack_start(self.label, False, True, 10)
+
+        self.stack = Gtk.Stack()
+        self.stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
+        self.stack.set_transition_duration(1000)
+
+        self.grid_info = Gtk.Grid()
+        self.grid_info.set_column_spacing(10)
+        self.stack.add_titled(self.grid_info, 'general', _('General'))
+
+        self.make_info(_('Size:'), G.get_size(paths))
+        if len(paths) == 1:
+            self.make_info(_('Mime type:'), G.get_type(paths[0]))
+            self.make_info(_('Created:'), G.get_created_time(paths[0]))
+            self.make_info(_('Last modified:'), G.get_modified_time(paths[0]))
+            self.make_info(_('Ubication:'), paths[0])
+
+        elif len(paths) > 1:
+            self.make_info(_('Ubication:'), G.get_parent_directory(paths[0]))
+
+        if len(paths) == 1 and os.path.isfile(paths[0]):
+            label = Gtk.Label(('Open with:'))
+            label.set_selectable(True)
+            label.modify_font(Pango.FontDescription('Bold'))
+            self.grid_info.attach(label, 0, self.info_number, 1, 1)
+
+            button = Gtk.AppChooserButton(content_type=G.get_type(paths[0]))
+            button.set_show_dialog_item(True)
+            self.grid_info.attach(button, 1, self.info_number, 1, 1)
+
+        grid_permissions = Gtk.Grid()
+        grid_permissions.set_row_homogeneous(True)
+        self.stack.add_titled(grid_permissions, 'permissions', _('Permissions'))
+
+        self.stack_switcher = Gtk.StackSwitcher()
+        self.stack_switcher.set_stack(self.stack)
+        self.stack_switcher.set_hexpand(True)
+        self.stack_switcher.set_halign(Gtk.Align.CENTER)
+        self.vbox.pack_start(self.stack_switcher, True, True, 10)
+        self.vbox.pack_start(self.stack, True, True, 0)
+
+        self.set_resizable(False)
+        self.set_title(_('Properties'))
+        self.vbox.set_margin_left(20)
+        self.vbox.set_margin_right(20)
+
+        self.grid_info.show_all()
+        grid_permissions.show_all()
+        self.show_all()
+
+    def make_info(self, title, info):
+        label = Gtk.Label(title)
+        label.set_selectable(True)
+        label.modify_font(Pango.FontDescription('bold'))
+        label.set_justify(Gtk.Justification.LEFT)
+        self.grid_info.attach(label, 0, self.info_number, 1, 1)
+
+        label_info = Gtk.Label(info)
+        label_info.set_selectable(True)
+        label_info.set_justify(Gtk.Justification.FILL)
+        self.grid_info.attach(label_info, 1, self.info_number, 1, 1)
+
+        self.info_number += 1
+
+    def __rename_file(self, entry):
+        self.emit('rename-file', entry.get_text())

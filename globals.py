@@ -19,6 +19,7 @@
 
 import os
 import re
+import time
 import ConfigParser
 from gettext import gettext as _
 
@@ -285,6 +286,7 @@ def get_pixbuf_from_path(path, size=None):
 
     return pixbuf
 
+
 def get_parent_directory(folder):
     path = '/'
     folders = []
@@ -315,43 +317,101 @@ def get_access(path):
     #  R_OK = Readable, W_OK = Writable
     return os.access(path, os.R_OK), os.access(path, os.W_OK)
 
+
 def natural_sort(_list):
     convert = lambda text: int(text) if text.isdigit() else text.lower()
     alphanum_key = lambda key: [convert(c) for c in re.split('([0-9]+)', key)]
     return sorted(_list, key=alphanum_key)
 
+
+def get_size_unity(size):
+    if size < 1024:
+        return size, 'B'
+
+    elif size >= 1024 and size < 1024 ** 2:
+        return size / 1024, 'KB'
+
+    elif size >= 1024 ** 2 and size < 1024 ** 3:
+        return size / 1024 / 1024, 'MB'
+
+    elif size >= 1024 ** 3 and size < 1024 ** 4:
+        return size / 1024 / 1024 / 1024, 'GB'
+
+    elif size >= 1024 ** 4:
+        return size / 1024 / 1024 / 1024 / 1024, 'TB'
+
+
 def get_size(path):
-    writable, readable = get_access(path)
-    if not readable:
-        return ''
+    if type(path) == str:
+        writable, readable = get_access(path)
+        if not readable:
+            return ''
+
+    if type(path) == list:
+        folders = []
+        files = []
+        string = ''
+        quantity = 0
+        size = 0
+
+        for x in path:
+            if os.path.isdir(x):
+                folders.append(x)
+
+            elif os.path.isfile(x):
+                files.append(x)
+
+        for x in folders:
+            quantity += len(os.listdir(x))
+
+        for x in files:
+            size += os.path.getsize(x)
+
+        if len(folders) and len(files):
+            if len(folders) > 1:
+                string = '%d %s %d %s ' % (len(folders), _('folders selecteds, contains'), quantity, _('items, and'))
+
+            else:
+                string = '%s %s %d %s ' % (Dirs()[folders[0]], _('contains'), quantity, _('items, and'))
+
+            if len(files) > 1:
+                size, size_str = get_size_unity(size)
+                string += '%d %s %d%s' % (len(files), 'files selecteds, weight', size, size_str)
+
+            else:
+                size, size_str = get_size_unity(size)
+                string += '%s %s %d%s' % (Dirs()[files[0]], _('weight'), size, size_str)
+
+            string = string.replace('0 items', 'any items')
+            return string.replace('1 items', 'a item')
+
+        elif len(folders) and not len(files):
+            if len(folders) > 1:
+                string = '%d %s %d %s' % (len(folders),  _('folders selected, contains'), quantity, _('items'))
+
+            else:
+                string = '%s %d %s' % (_('Contains'), quantity, _('items'))
+
+            string = string.replace('0 items', 'any items')
+            return string.replace('1 items', 'a item')
+
+        elif not len(folders) and len(files):
+            size, size_str = get_size_unity(size)
+            if len(files) > 1:
+                string = '%d %s %d%s' % (len(files), _('files selected, weight'), size, size_str)
+                return string.replace('1 files', 'A file')
+
+            else:
+                return '%d%s' % (size, size_str)
 
     if os.path.isdir(path):
-        text = 'Contains %d items' % len(os.listdir(path))
+        text = _('Contains @ items').replace('@', str(len(os.listdir(path))))
         text = text.replace('0 items', 'any items')
         return text.replace('1 items', 'a item')
 
     elif os.path.isfile(path):
         size = os.path.getsize(path)
-        size_str = ''
-        if size < 1024:
-            size = size
-            size_str = 'B'
-
-        elif size >= 1024 and size < 1024 ** 2:
-            size = size / 1024
-            size_str = 'KB'
-
-        elif size >= 1024 ** 2 and size < 1024 ** 3:
-            size = size / 1024 / 1024
-            size_str = 'MB'
-
-        elif size >= 1024 ** 3 and size < 1024 ** 4:
-            size = size / 1024 / 1024 / 1024
-            size_str = 'GB'
-
-        elif size >= 1024 ** 4:
-            size = size / 1024 / 1024 / 1024 / 1024
-            size_str = 'TB'
+        size, size_str = get_size_unity(size)
 
         return 'Size: %d%s' % (size, size_str)
 
@@ -364,3 +424,29 @@ def clear_path(path):
     path = path.replace('//', '/')
 
     return path
+
+
+def get_type(path):
+    unknown = 'application/octet-stream'
+    mime_type = Gio.content_type_guess(path, data=None)[0]
+    if mime_type != unknown:
+        return mime_type
+
+    elif mime_type == unknown:
+        if os.path.ismount(path):
+            return 'inode/mount-point'
+
+        if os.path.isdir(path):
+            return 'inode/directory'
+
+    if mime_type == unknown:
+        import commands
+        return commands.getoutput('file --mime-type %s' % path).split(':')[1][1:]
+
+
+def get_created_time(path):
+    return time.ctime(os.path.getctime(path))
+
+
+def get_modified_time(path):
+    return time.ctime(os.path.getmtime(path))

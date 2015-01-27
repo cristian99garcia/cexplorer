@@ -29,6 +29,7 @@ from widgets import Notebook
 from widgets import PlaceBox
 from widgets import StatusBar
 from widgets import LateralView
+from widgets import PropertiesWindow
 
 
 class CExplorer(Gtk.Window):
@@ -153,6 +154,15 @@ class CExplorer(Gtk.Window):
         view.connect('item-selected', self.__item_selected)
         view.connect('multiple-selection', self.__multiple_selection)
         view.connect('new-page', lambda x, p: self.new_page(p))
+        view.connect('show-properties', self.show_properties_for_paths)
+
+    def show_properties_for_paths(self, view, paths):
+        if not paths:
+            paths = [self.folder]
+
+        paths.reverse()
+        dialog = PropertiesWindow(paths)
+        dialog.set_transient_for(self)
 
     def update_widgets(self, view=None, force=True):
         # FIXME: hay que fijarse la posición actual con respecto al historial
