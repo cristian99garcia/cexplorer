@@ -116,6 +116,29 @@ class CExplorer(Gtk.Window):
     def __update_statusbar(self, view, selection):
         self.statusbar.update_label(view.folder, selection, view.model)
 
+    def __try_rename(self, widget, old_path, new_name):
+        readable, writable = G.get_access(old_path)
+        new_path = os.path.join(G.get_parent_directory(old_path), new_name)
+        if not writable:
+            widget.entry.set_text(self.dirs[old_path])
+            self.infobar.set_msg(G.ERROR_NOT_UNWRITABLE, old_path)
+            self.infobar.show_all()
+            return
+
+        if os.path.exists(new_path):
+            widget.entry.set_text(self.dirs[old_path])
+            self.infobar.set_msg(G.ERROR_ALREADY_EXISTS, new_path)
+            self.infobar.show_all()
+            return
+
+        if '/' in new_name:
+            widget.entry.set_text(self.dirs[old_path])
+            self.infobar.set_msg(G.ERROR_INVALID_NAME, new_name)
+            self.infobar.show_all()
+            return
+
+        os.rename(old_path, new_path)
+
     def remove_page(self, idx=None, view=None):
         if not view:
             if idx is None:
@@ -138,7 +161,7 @@ class CExplorer(Gtk.Window):
             self.scan_folder.set_folder(folder)
 
         else:
-            self.infobar.set_msg(folder)
+            self.infobar.set_msg(G.ERROR_NOT_PERMISSIONS_READABLE, folder)
             self.infobar.show_all()
 
         GObject.idle_add(self.update_widgets, force=False)
@@ -162,6 +185,7 @@ class CExplorer(Gtk.Window):
 
         paths.reverse()
         dialog = PropertiesWindow(paths)
+        dialog.connect('rename-file', self.__try_rename)
         dialog.set_transient_for(self)
 
     def update_widgets(self, view=None, force=True):

@@ -259,9 +259,9 @@ class InfoBar(Gtk.InfoBar):
         vbox = Gtk.VBox()
         hbox.add(vbox)
 
-        title = Gtk.Label(G.MSG_UNREADABLE_TITLE)
-        title.modify_font(Pango.FontDescription('Bold 12'))
-        vbox.pack_start(title, False, False, 2)
+        self.title = Gtk.Label()
+        self.title.modify_font(Pango.FontDescription('Bold 12'))
+        vbox.pack_start(self.title, False, False, 2)
 
         self.msg = Gtk.Label()
         vbox.pack_start(self.msg, False, False, 0)
@@ -269,9 +269,22 @@ class InfoBar(Gtk.InfoBar):
     def __response(self, widget, response):
         self.hide()
 
-    def set_msg(self, path):
-        msg = G.MSG_UNREADABLE_CONTENT.replace('@', '"%s"' % path)
-        self.msg.set_label(msg)
+    def set_msg(self, msg_type, info):
+        if msg_type == G.ERROR_NOT_READABLE:
+            self.title.set_label(G.TITLE_ERROR_UNREADABLE)
+            self.msg.set_label(G.MSG_UNREADABLE.replace('@', info))
+
+        elif msg_type == G.ERROR_NOT_UNWRITABLE:
+            self.title.set_label(G.TITLE_ERROR_UNWRITABLE)
+            self.msg.set_label(G.MSG_UNWRITABLE.replace('@', info))
+
+        elif msg_type == G.ERROR_ALREADY_EXISTS:
+            self.title.set_label(G.TITLE_ERROR_ALREADY_EXISTS)
+            self.msg.set_label(G.MSG_ALREADY_EXISTS.replace('@', info))
+
+        elif msg_type == G.ERROR_INVALID_NAME:
+            self.title.set_label(G.TITLE_ERROR_INVALID_NAME)
+            self.msg.set_label(G.MSG_INVALID_NAME.replace('@', info))
 
 
 class LateralView(Gtk.ScrolledWindow):
@@ -636,7 +649,7 @@ class StatusBar(Gtk.HBox):
 class PropertiesWindow(Gtk.Dialog):
 
     __gsignals__ = {
-        'rename-file': (GObject.SIGNAL_RUN_FIRST, None, [str]),
+        'rename-file': (GObject.SIGNAL_RUN_FIRST, None, [str, str]),
         }
 
     def __init__(self, paths):
@@ -644,6 +657,7 @@ class PropertiesWindow(Gtk.Dialog):
 
         self.dirs = G.Dirs()
         self.info_number = 0
+        self.old_path = paths[0]
 
         hbox = Gtk.HBox()
         self.vbox.pack_start(hbox, False, False, 0)
@@ -728,4 +742,4 @@ class PropertiesWindow(Gtk.Dialog):
         self.info_number += 1
 
     def __rename_file(self, entry):
-        self.emit('rename-file', entry.get_text())
+        self.emit('rename-file', self.old_path, entry.get_text())
