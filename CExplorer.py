@@ -79,9 +79,17 @@ class CExplorer(Gtk.Window):
         self.show_all()
         self.infobar.hide()
 
-    def __item_selected(self, widget, path):
-        if os.path.isdir(path) and path != self.folder:
-            self.set_folder(path)
+    def __item_selected(self, widget, paths):
+        if type(paths) == str:
+            paths = [G.clear_path(paths)]
+
+        paths.reverse()
+        if os.path.isdir(paths[0]) and paths[0] != self.folder:
+            self.set_folder(paths[0])
+
+        for path in paths[1:]:
+            if os.path.isdir(paths[0]):
+                self.new_page(path)
 
     def __multiple_selection(self, widget, paths):
         # FIXME: falta abrir archivos
@@ -175,7 +183,6 @@ class CExplorer(Gtk.Window):
         view.icon_size = self.icon_size
         view.connect('selection-changed', self.__update_statusbar)
         view.connect('item-selected', self.__item_selected)
-        view.connect('multiple-selection', self.__multiple_selection)
         view.connect('new-page', lambda x, p: self.new_page(p))
         view.connect('show-properties', self.show_properties_for_paths)
 

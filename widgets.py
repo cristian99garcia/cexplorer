@@ -32,9 +32,8 @@ from gi.repository import GdkPixbuf
 class View(Gtk.ScrolledWindow):
 
     __gsignals__ = {
-        'item-selected': (GObject.SIGNAL_RUN_FIRST, None, [str]),
-        'new-page': (GObject.SIGNAL_RUN_FIRST, None, [str]),
-        'multiple-selection': (GObject.SIGNAL_RUN_FIRST, None, [object]),
+        'item-selected': (GObject.SIGNAL_RUN_FIRST, None, [object]),
+        'new-page': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         'selection-changed': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         'show-properties': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         }
@@ -80,11 +79,7 @@ class View(Gtk.ScrolledWindow):
                 treeiter = self.model.get_iter(path)
                 paths.append(self.get_path_from_treeiter(treeiter))
 
-            if len(paths) == 1:
-                self.emit('item-selected', paths[0])
-
-            elif len(paths) >= 1:
-                self.emit('multiple-selection', paths)
+            self.emit('item-selected', paths)
 
     def __button_press_event_cb(self, view, event):
         path = view.get_path_at_pos(int(event.x), int(event.y))
@@ -179,13 +174,12 @@ class View(Gtk.ScrolledWindow):
             treeiter = self.model.get_iter(path)
             paths.append(self.get_path_from_treeiter(treeiter))
 
-        if not new_page:
-            self.emit('item-selected', paths[0])
-            for path in paths[1:]:
+        if new_page:
+            for path in paths:
                 self.emit('new-page', path)
 
         elif new_page:
-            self.emit('multiple-selection', paths)
+            self.emit('item-selected', paths)
 
     def __sort_changed(self, item, sort):
         self.sort = sort
