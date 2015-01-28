@@ -296,70 +296,87 @@ class LateralView(Gtk.ScrolledWindow):
     def __init__(self):
         Gtk.ScrolledWindow.__init__(self)
 
+        self.rows = {}
         self.volume_monitor = Gio.VolumeMonitor.get()
-        self.model = Gtk.ListStore(GdkPixbuf.Pixbuf, str, str)
-        self.view = Gtk.TreeView()
-        self.selection = self.view.get_selection()
+        self.view = Gtk.ListBox()
+        #   view structur:
+        #   GtkVBox:
+        #       GtkHBox: add property path
+        #           GtkImage, GtkLabel, GtkButton(For eject a mount)
+        #   GtkLevelBar(Show used space)
+
         self.dirs = G.Dirs()
         self.folder = None
 
-        cell_icon = Gtk.CellRendererPixbuf()
-        col_icon = Gtk.TreeViewColumn('Icon', cell_icon, pixbuf=0)
-        self.view.append_column(col_icon)
-
-        cell_name = Gtk.CellRendererText()
-        cell_name.props.font = 'Bold 15'
-        col_name = Gtk.TreeViewColumn('Folder', cell_name, text=1)
-        self.view.append_column(col_name)
-
-        self.view.set_model(self.model)
-        self.view.set_headers_visible(False)
-
-        for x in self.dirs:
-            pixbuf = self.dirs.get_pixbuf_symbolic(x)
-            self.model.append([pixbuf, self.dirs[x], x])
+        self.view.set_selection_mode(Gtk.SelectionMode.SINGLE)
 
         #self.volume_monitor.connect('mount-added', self.add_mount)
         #self.volume_monitor.connect('mount-removed', self.remove_mount)
 
+        self.make_items()
         self.select_item(G.HOME_DIR)
         self.set_size_request(200, -1)
 
-        self.selection.connect('changed', self.__selection_changed)
+        self.view.connect('row-selected', self.__selection_changed)
         self.add(self.view)
 
-    def __selection_changed(self, selection):
-        model, treeiter = selection.get_selected()
-        if treeiter and model.get_value(treeiter, 2) != self.folder:
-            self.folder = model.get_value(treeiter, 2)
-            self.emit('item-selected', self.folder)
+    def __selection_changed(self, listview, row):
+        if row and G.clear_path(row.path) == self.folder:
+            return
+
+        for path, _row in self.rows.items():
+            if _row == row:
+                self.folder = G.clear_path(row.path)
+                self.emit('item-selected', self.folder)
+                break
+
+    def make_items(self):
+        for x in self.dirs:
+            self.add_home_folder(x)
+
+    def add_home_folder(self, path):
+        name = self.dirs[path]
+        pixbuf = self.dirs.get_pixbuf_symbolic(path)
+        image = Gtk.Image.new_from_pixbuf(pixbuf)
+
+        row = Gtk.ListBoxRow()
+        row.path = path
+        vbox = Gtk.VBox()
+        hbox = Gtk.HBox()
+        label = Gtk.Label(name)
+        umount_button = Gtk.ToolButton.new_from_stock(Gtk.STOCK_REMOVE)
+        levelbar = Gtk.LevelBar()
+
+        hbox.pack_start(image, False, False, 10)
+        hbox.pack_start(label, False, False, 5)
+        #hbox.pack_start(umount_button, False, False, 0)
+        vbox.pack_start(hbox, False, False, 2)
+        #vbox.pack_start(levelbar, False, False, 0)
+        row.add(vbox)
+        self.view.add(row)
+
+        self.rows[path] = row
+        # if is a mount: add levelbar and umount_button
 
     def select_item(self, path):
         path = G.clear_path(path)
-        if self.folder:
-            self.folder = G.clear_path(self.folder)
-
-        if path != self.folder:
-            self.selection.unselect_all()
-
         if not self.folder:
             self.folder = G.HOME_DIR
 
-        if not path in self.dirs:
-            # FIXME: hay que fijarse en los puntos de montaje(usb,
-            #        disco extraíbles, etc)
+        if self.folder:
+            self.folder = G.clear_path(self.folder)
+
+        if not path in self.rows:
+            self.view.set_selection_mode(Gtk.SelectionMode.NONE)
+            self.view.set_selection_mode(Gtk.SelectionMode.SINGLE)
+            # Unselecting all items
             return
 
-        for row in self.model:
-            treeiter = row.iter
-            folder = G.clear_path(self.model.get_value(treeiter, 2))
+        if path == self.folder and self.view.get_selected_row():
+            return
 
-            if folder == path and path != self.folder:
-                self.view.set_cursor(row.path.get_indices()[0])
-                self.folder = path
-                break
+        self.view.select_row(self.rows[path])
 
-    """
     def add_mount(self, device):
         if not self.label_mount_added:
             self.label_mount_added = True
@@ -373,7 +390,6 @@ class LateralView(Gtk.ScrolledWindow):
 
     def remove_mount(self, *args):
         print args
-    """
 
 
 class Notebook(Gtk.Notebook):

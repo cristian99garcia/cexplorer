@@ -30,6 +30,17 @@ from gi.repository import GLib
 from gi.repository import GObject
 from gi.repository import GdkPixbuf
 
+
+def clear_path(path):
+    path = path.replace('//', '/')
+    path = path.replace('//', '/')
+
+    if not path.endswith('/'):
+        path = path + '/'
+
+    return path
+
+
 DEFAULT_ICON_SIZE = 48
 DEFAULT_ITEM_ICON_SIZE = 32
 
@@ -51,24 +62,25 @@ MSG_INVALID_NAME = _('"@"" is a invalid name for a file.')
 SORT_BY_NAME = 0
 SORT_BY_SIZE = 1
 
-HOME_DIR = os.path.expanduser('~')
+HOME_DIR = clear_path(os.path.expanduser('~'))
 HOME_NAME = _('Personal folder')
-DESKTOP_DIR = GLib.get_user_special_dir(GLib.USER_DIRECTORY_DESKTOP)
+DESKTOP_DIR = clear_path(GLib.get_user_special_dir(GLib.USER_DIRECTORY_DESKTOP))
 DESKTOP_NAME = _('Desktop')
-DOCUMENTS_DIR = GLib.get_user_special_dir(GLib.USER_DIRECTORY_DOCUMENTS)
+DOCUMENTS_DIR = clear_path(GLib.get_user_special_dir(GLib.USER_DIRECTORY_DOCUMENTS))
 DOCUMENTS_NAME = _('Documents')
-DOWNLOADS_DIR = GLib.get_user_special_dir(GLib.USER_DIRECTORY_DOWNLOAD)
+DOWNLOADS_DIR = clear_path(GLib.get_user_special_dir(GLib.USER_DIRECTORY_DOWNLOAD))
 DOWNLOADS_NAME = _('Donwloads')
-MUSIC_DIR = GLib.get_user_special_dir(GLib.USER_DIRECTORY_MUSIC)
+MUSIC_DIR = clear_path(GLib.get_user_special_dir(GLib.USER_DIRECTORY_MUSIC))
 MUSIC_NAME = _('Music')
-PICTURES_DIR = GLib.get_user_special_dir(GLib.USER_DIRECTORY_PICTURES)
+PICTURES_DIR = clear_path(GLib.get_user_special_dir(GLib.USER_DIRECTORY_PICTURES))
 PICTURES_NAME = _('Pictures')
-VIDEOS_DIR = GLib.get_user_special_dir(GLib.USER_DIRECTORY_VIDEOS)
+VIDEOS_DIR = clear_path(GLib.get_user_special_dir(GLib.USER_DIRECTORY_VIDEOS))
 VIDEOS_NAME = _('Videos')
 SYSTEM_DIR = '/'
 SYSTEM_NAME = _('Equipment')
 
 KEYS = {65293: 'Enter'}
+
 
 class Dirs(object):
     """
@@ -120,7 +132,7 @@ class Dirs(object):
 
         return cls._instance
 
-    def __getitem__(self, name):
+    def __getitem__(self, path):
         """
         >>> dirs = Dirs()
         >>> print dirs[HOME_DIR]  # Get directory name a special directory
@@ -132,19 +144,25 @@ class Dirs(object):
         >>> print dirs['/home/cristian/']  # Get name from another directory
         ... 'cristian'
         """
-        if name in self.specials_dirs:
-            return self.specials_dirs[name]
+        path = clear_path(path)
+
+        if path in self.specials_dirs:
+            return self.specials_dirs[path]
 
         else:
-            if name.endswith('.desktop'):
+            if path.endswith('.desktop'):
                 cfg = ConfigParser.ConfigParser()
-                cfg.read([name])
+                cfg.read([path])
 
                 if cfg.has_option('Desktop Entry', 'Name'):
                     return cfg.get('Desktop Entry', 'Name')
 
-            path, name = os.path.split(name)
-            return name if name else path
+            name = '/'
+            for x in path.split('/'):
+                if x:
+                    name = x
+
+            return name
 
     def __setitem__(self, name, value):
         if not name in self[name]:
@@ -423,16 +441,6 @@ def get_size(path):
         size, size_str = get_size_unity(size)
 
         return 'Size: %d%s' % (size, size_str)
-
-
-def clear_path(path):
-    if not path.endswith('/'):
-        path += '/'
-
-    path = path.replace('//', '/')
-    path = path.replace('//', '/')
-
-    return path
 
 
 def get_type(path):
