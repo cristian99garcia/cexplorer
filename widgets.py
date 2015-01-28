@@ -58,9 +58,7 @@ class View(Gtk.ScrolledWindow):
         self.view.set_pixbuf_column(1)
         self.view.set_model(self.model)
         self.view.set_selection_mode(Gtk.SelectionMode.MULTIPLE)
-        self.add_events(Gdk.EventMask.KEY_RELEASE_MASK)
 
-        self.view.connect('key-release-event', self.__key_release_event_cb)
         self.view.connect('button-press-event', self.__button_press_event_cb)
         self.view.connect('selection-changed', self.__selection_changed)
 
@@ -68,18 +66,6 @@ class View(Gtk.ScrolledWindow):
 
     def __selection_changed(self, view):
         self.emit('selection-changed', view.get_selected_items())
-
-    def __key_release_event_cb(self, view, event):
-        key = G.KEYS.get(event.keyval, False)
-
-        if key == 'Enter':
-            paths = []
-
-            for path in self.view.get_selected_items():
-                treeiter = self.model.get_iter(path)
-                paths.append(self.get_path_from_treeiter(treeiter))
-
-            self.emit('item-selected', paths)
 
     def __button_press_event_cb(self, view, event):
         path = view.get_path_at_pos(int(event.x), int(event.y))
@@ -449,7 +435,7 @@ class PlaceBox(Gtk.HBox):
 
         self.vbox = Gtk.VBox()
         self.hbox = Gtk.HBox()
-        self.show_buttons = True
+        self.show_buttons = False
         self.buttons = []
         self.dirs = G.Dirs()
         self.folder = G.HOME_DIR
@@ -491,19 +477,30 @@ class PlaceBox(Gtk.HBox):
         self.entry = Gtk.Entry()
         self.entry.set_placeholder_text('Select a directory')
         self.entry.connect('activate', self.__change_directory)
-        #self.hbox.pack_start(self.entry, True, True, 10)
+        self.hbox.pack_start(self.entry, True, True, 10)
 
         button_close = Gtk.Button()
         image = Gtk.Image.new_from_icon_name('window-close', Gtk.IconSize.BUTTON)
         button_close.set_relief(Gtk.ReliefStyle.NONE)
         button_close.add(image)
         button_close.connect('clicked', self.__close)
-        self.hbox.pack_start(button_close, False, False, 0)
+        self.hbox.pack_end(button_close, False, False, 0)
 
         self.set_folder(G.HOME_DIR)
 
         self.vbox.add(self.hbox)
         self.add(self.vbox)
+
+    def change_mode(self):
+        self.show_buttons = not self.show_buttons
+
+        if self.show_buttons:
+            self.entry.hide()
+            self.buttonbox.show_all()
+
+        else:
+            self.buttonbox.hide()
+            self.entry.show()
 
     def set_folder(self, folder):
         # FIXME: Hay que agregar botones de desplazamientos, de lo contrario
@@ -514,58 +511,61 @@ class PlaceBox(Gtk.HBox):
         self.folder = G.clear_path(self.folder)
         self.entry.set_text(folder)
 
-        if self.show_buttons:
-            if self.folder.startswith(folder) and \
-                self.buttonbox.get_children() and \
-                (not G.HOME_DIR.startswith(self.folder) or \
-                not self.buttonbox.get_children()[0].get_children()[0].get_label() == G.HOME_NAME):
-
-                self.folder = folder
-                return
+        if self.folder.startswith(folder) and \
+            self.buttonbox.get_children() and \
+            (not G.HOME_DIR.startswith(self.folder) or \
+            not self.buttonbox.get_children()[0].get_children()[0].get_label() == G.HOME_NAME):
 
             self.folder = folder
+            return
 
-            del self.buttons
-            self.buttons = []
+        self.folder = folder
 
-            if not folder.startswith(G.HOME_DIR):
-                self.buttons.append('/')
+        del self.buttons
+        self.buttons = []
 
-            while self.buttonbox.get_children():
-                self.buttonbox.remove(self.buttonbox.get_children()[0])
+        if not folder.startswith(G.HOME_DIR):
+            self.buttons.append('/')
 
-            if folder.startswith(G.HOME_DIR):
-                self.buttons.append(G.HOME_NAME)
-                folder = folder[len(G.HOME_DIR):]
-                folder = folder[1:] if folder.startswith('/') else folder
+        while self.buttonbox.get_children():
+            self.buttonbox.remove(self.buttonbox.get_children()[0])
 
-            for x in folder.split('/'):
-                if x:
-                    self.buttons.append(x)
+        if folder.startswith(G.HOME_DIR):
+            self.buttons.append(G.HOME_NAME)
+            folder = folder[len(G.HOME_DIR):]
+            folder = folder[1:] if folder.startswith('/') else folder
 
-            path = ''
-            for x in self.buttons:
-                if x == G.HOME_NAME:
-                    path += G.HOME_DIR + '/'
+        for x in folder.split('/'):
+            if x:
+                self.buttons.append(x)
 
-                else:
-                    if not path.endswith('/'):
-                        path += '/'
+        path = ''
+        for x in self.buttons:
+            if x == G.HOME_NAME:
+                path += G.HOME_DIR + '/'
 
-                    path += x + '/'
+            else:
+                if not path.endswith('/'):
+                    path += '/'
 
-                if x == G.SYSTEM_DIR:
-                    x = self.dirs[G.SYSTEM_DIR]
+                path += x + '/'
 
-                label = Gtk.Label(x)
-                label.modify_font(Pango.FontDescription('Bold 12'))
-                button = Gtk.Button()
-                button.path = path
-                button.connect('clicked', self.__button_clicked)
-                button.add(label)
-                self.buttonbox.pack_start(button, False, False, 0)
+            if x == G.SYSTEM_DIR:
+                x = self.dirs[G.SYSTEM_DIR]
 
-        self.show_all()
+            label = Gtk.Label(x)
+            label.modify_font(Pango.FontDescription('Bold 12'))
+            button = Gtk.Button()
+            button.path = path
+            button.connect('clicked', self.__button_clicked)
+            button.add(label)
+            self.buttonbox.pack_start(button, False, False, 0)
+
+        if self.show_buttons:
+            self.buttonbox.show_all()
+
+        else:
+            self.entry.show()
 
     def __go(self, widget, direction):
         self.emit(direction)

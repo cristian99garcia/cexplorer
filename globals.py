@@ -79,7 +79,12 @@ VIDEOS_NAME = _('Videos')
 SYSTEM_DIR = '/'
 SYSTEM_NAME = _('Equipment')
 
-KEYS = {65293: 'Enter'}
+KEYS = {65288: 'Backspace',
+        65293: 'Enter',
+        65507: 'Ctrl'}
+
+for x in range(65, 91) + range(97, 123):
+    KEYS[x] = chr(x)
 
 
 class Dirs(object):

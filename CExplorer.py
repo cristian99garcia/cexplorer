@@ -44,6 +44,8 @@ class CExplorer(Gtk.Window):
         self.other_view = False
         self.view = None
         self.icon_size = G.DEFAULT_ICON_SIZE
+        self.pressed_keys = []
+        self.shortcut = ''
 
         self.vbox = Gtk.VBox()
         self.paned = Gtk.HPaned()
@@ -58,7 +60,10 @@ class CExplorer(Gtk.Window):
         self.set_title(self.folder_name)
         self.set_titlebar(self.place_box)
 
+        self.connect('realize', self.__realize_cb)
         self.connect('destroy', Gtk.main_quit)
+        self.connect('key-press-event', self.__key_press_event_cb)
+        self.connect('key-release-event', self.__key_release_event_cb)
         self.place_box.connect('go-up', self.go_up)
         self.place_box.connect('change-directory', self.__item_selected)
         self.lateral_view.connect('item-selected', self.__item_selected)
@@ -79,35 +84,55 @@ class CExplorer(Gtk.Window):
         self.show_all()
         self.infobar.hide()
 
+    def __realize_cb(self, *args):
+        self.place_box.change_mode()
+
+    def __key_press_event_cb(self, widget, event):
+        if not event.keyval in self.pressed_keys:
+            self.pressed_keys.append(event.keyval)
+
+        shortcut = ''
+        for key in self.pressed_keys:
+            if key in G.KEYS.keys():
+                shortcut += G.KEYS[key] + '+'
+
+        self.shortcut = shortcut[:-1]
+        self.check_shortcut()
+
+    def __key_release_event_cb(self, widget, event):
+        key = G.KEYS.get(event.keyval, False)
+        view = self.get_actual_view()
+
+        if not self.place_box.entry.is_focus():
+            if key == 'Enter':
+                paths = []
+
+                for path in view.view.get_selected_items():
+                    treeiter = view.model.get_iter(path)
+                    paths.append(view.get_path_from_treeiter(treeiter))
+
+                self.__item_selected(None, paths)
+
+            elif key == 'Backspace':
+                self.go_up()
+
+        if event.keyval in self.pressed_keys:
+            self.pressed_keys.remove(event.keyval)
+
     def __item_selected(self, widget, paths):
         if type(paths) == str:
             paths = [G.clear_path(paths)]
 
         paths.reverse()
+        if not paths:
+            return
+
         if os.path.isdir(paths[0]) and paths[0] != self.folder:
             self.set_folder(paths[0])
 
         for path in paths[1:]:
             if os.path.isdir(paths[0]):
                 self.new_page(path)
-
-    def __multiple_selection(self, widget, paths):
-        # FIXME: falta abrir archivos
-
-        directories = 0
-        folders = []
-
-        for path in paths:
-            if os.path.isdir(path):
-                folders.append(path)
-                directories += 1
-
-        if directories == 1:
-            self.set_folder(folders[0])
-
-        elif directories > 1:
-            for folder in folders:
-                self.new_page(folder)
 
     def __switch_page(self, notebook, view, page):
         GObject.idle_add(self.update_widgets, view=view)
@@ -147,6 +172,10 @@ class CExplorer(Gtk.Window):
 
         os.rename(old_path, new_path)
 
+    def check_shortcut(self):
+        if self.shortcut  == 'Ctrl+l':
+            self.change_place_view()
+
     def remove_page(self, idx=None, view=None):
         if not view:
             if idx is None:
@@ -159,6 +188,9 @@ class CExplorer(Gtk.Window):
             self.new_page()
 
         self.notebook.set_show_tabs(len(self.notebook.get_children()) > 1)
+
+    def change_place_view(self):
+        self.place_box.change_mode()
 
     def set_folder(self, folder):
         readable, writable = G.get_access(folder)
