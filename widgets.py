@@ -415,10 +415,11 @@ class Notebook(Gtk.Notebook):
 
         return view
 
-    def update_label(self, view):
-        hbox = self.get_tab_label(view)
-        label = hbox.get_children()[0]
-        label.set_label(G.Dirs()[view.folder])
+    def update_tab_labels(self):
+        for view in self.get_children():
+            hbox = self.get_tab_label(view)
+            label = hbox.get_children()[0]
+            label.set_label(G.Dirs()[view.folder])
 
 
 class PlaceBox(Gtk.HBox):

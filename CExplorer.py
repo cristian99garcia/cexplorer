@@ -215,6 +215,7 @@ class CExplorer(Gtk.Window):
         view.icon_size = self.icon_size
         view.connect('selection-changed', self.__update_statusbar)
         view.connect('item-selected', self.__item_selected)
+        view.connect('item-selected', lambda *args: self.notebook.update_label(view))
         view.connect('new-page', lambda x, p: self.new_page(p))
         view.connect('show-properties', self.show_properties_for_paths)
 
@@ -247,7 +248,7 @@ class CExplorer(Gtk.Window):
         self.lateral_view.select_item(self.folder)
         self.scan_folder.set_folder(view.folder)
         self.scan_folder.scan(force=update_icons)
-        self.notebook.update_label(view)
+        self.notebook.update_tab_labels()
 
     def update_icons(self, scan_folder, paths):
         view = self.get_actual_view()
