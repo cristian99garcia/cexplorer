@@ -215,7 +215,7 @@ class CExplorer(Gtk.Window):
         view.icon_size = self.icon_size
         view.connect('selection-changed', self.__update_statusbar)
         view.connect('item-selected', self.__item_selected)
-        view.connect('item-selected', lambda *args: self.notebook.update_label(view))
+        view.connect('item-selected', lambda *args: self.notebook.update_tab_labels())
         view.connect('new-page', lambda x, p: self.new_page(p))
         view.connect('show-properties', self.show_properties_for_paths)
 

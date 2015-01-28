@@ -502,6 +502,7 @@ class PlaceBox(Gtk.HBox):
         else:
             self.buttonbox.hide()
             self.entry.show()
+            self.entry.grab_focus()
 
     def set_folder(self, folder):
         # FIXME: Hay que agregar botones de desplazamientos, de lo contrario
