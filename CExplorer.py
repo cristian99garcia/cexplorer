@@ -127,7 +127,7 @@ class CExplorer(Gtk.Window):
         if not paths:
             return
 
-        if os.path.isdir(paths[0]) and paths[0] != self.folder:
+        if paths[0] != self.folder:
             self.set_folder(paths[0])
 
         for path in paths[1:]:
@@ -174,7 +174,7 @@ class CExplorer(Gtk.Window):
 
     def check_shortcut(self):
         if self.shortcut  == 'Ctrl+l':
-            self.change_place_view()
+            self.place_box.change_mode()
 
     def remove_page(self, idx=None, view=None):
         if not view:
@@ -194,13 +194,21 @@ class CExplorer(Gtk.Window):
 
     def set_folder(self, folder):
         readable, writable = G.get_access(folder)
-        if readable:
+        if readable and os.path.isdir(folder):
             self.folder = folder
             self.get_actual_view().folder = folder
             self.place_box.set_folder(folder)
             self.scan_folder.set_folder(folder)
 
-        else:
+        elif os.path.isfile(folder):
+            #  Open file
+            pass
+
+        elif not os.path.exists(folder):
+            self.infobar.set_msg(G.ERROR_NOT_EXISTS, folder)
+            self.infobar.show_all()
+
+        elif not readable:
             self.infobar.set_msg(G.ERROR_NOT_PERMISSIONS_READABLE, folder)
             self.infobar.show_all()
 

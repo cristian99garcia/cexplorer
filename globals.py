@@ -48,16 +48,19 @@ ERROR_NOT_READABLE = 0
 ERROR_NOT_UNWRITABLE = 1
 ERROR_ALREADY_EXISTS = 2
 ERROR_INVALID_NAME = 3
+ERROR_NOT_EXISTS = 4
 
 TITLE_ERROR_UNREADABLE = _('Could not be displayed here.')
 TITLE_ERROR_UNWRITABLE = _('Could not be set.')
 TITLE_ERROR_ALREADY_EXISTS = _('Could not rename.')
 TITLE_ERROR_INVALID_NAME = _('Could not rename.')
+TITLE_ERROR_NOT_EXISTS = _('Could not be displayed here.')
 
 MSG_UNREADABLE = _('You do not have sufficient permissions to view the content of "@".')
 MSG_UNWRITABLE = _('You do not have sufficient permissions to edit "@".')
 MSG_ALREADY_EXISTS = _('You can not rename to "@", because already exists.')
 MSG_INVALID_NAME = _('"@"" is a invalid name for a file.')
+MSG_NOT_EXISTS = _('"@" can not be displayed because it does not exist.')
 
 SORT_BY_NAME = 0
 SORT_BY_SIZE = 1

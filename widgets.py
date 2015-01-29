@@ -266,6 +266,10 @@ class InfoBar(Gtk.InfoBar):
             self.title.set_label(G.TITLE_ERROR_INVALID_NAME)
             self.msg.set_label(G.MSG_INVALID_NAME.replace('@', info))
 
+        elif msg_type == G.ERROR_NOT_EXISTS:
+            self.title.set_label(G.TITLE_ERROR_NOT_EXISTS)
+            self.msg.set_label(G.MSG_NOT_EXISTS.replace('@', info))
+
 
 class LateralView(Gtk.ScrolledWindow):
 
@@ -502,7 +506,6 @@ class PlaceBox(Gtk.HBox):
         else:
             self.buttonbox.hide()
             self.entry.show()
-            self.entry.grab_focus()
 
     def set_folder(self, folder):
         # FIXME: Hay que agregar botones de desplazamientos, de lo contrario
@@ -512,6 +515,7 @@ class PlaceBox(Gtk.HBox):
         folder = G.clear_path(folder)
         self.folder = G.clear_path(self.folder)
         self.entry.set_text(folder)
+        self.entry.set_position(-1)
 
         if self.folder.startswith(folder) and \
             self.buttonbox.get_children() and \
