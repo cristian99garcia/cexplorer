@@ -36,6 +36,9 @@ class View(Gtk.ScrolledWindow):
         'new-page': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         'selection-changed': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         'show-properties': (GObject.SIGNAL_RUN_FIRST, None, [object]),
+        'cut': (GObject.SIGNAL_RUN_FIRST, None, [object]),
+        'copy': (GObject.SIGNAL_RUN_FIRST, None, [object]),
+        'paste': (GObject.SIGNAL_RUN_FIRST, None, [str]),
         }
 
     def __init__(self, folder):
@@ -70,20 +73,25 @@ class View(Gtk.ScrolledWindow):
     def __button_press_event_cb(self, view, event):
         path = view.get_path_at_pos(int(event.x), int(event.y))
         selection = view.get_selected_items()
+        paths = []
 
         if event.button == 3:
-            if path:
-                treeiter = self.model.get_iter(path)
-                directory = self.get_path_from_treeiter(treeiter)
-                if path not in selection:
-                    self.view.unselect_all()
+            if not path in selection:
+                self.view.unselect_all()
+                selection = []
 
-                self.view.select_path(path)
+                if path:
+                    self.view.select_path(path)
+                    selection = view.get_selected_items()
 
-            else:
-                directory = self.folder
+            for treepath in selection:
+                treeiter = self.model.get_iter(treepath)
+                paths.append(self.get_path_from_treeiter(treeiter))
 
-            self.make_menu(directory)
+            if not paths:
+                paths = [self.folder]
+
+            self.make_menu(paths)
             self.menu.popup(None, None, None, None, event.button, event.time)
             return True
 
@@ -99,18 +107,28 @@ class View(Gtk.ScrolledWindow):
         if event.button == 1 and event.type.value_name == 'GDK_2BUTTON_PRESS':
             self.emit('item-selected', directory)
 
-    def make_menu(self, path):
-        readable, writable = G.get_access(path)
-        selection = self.view.get_selected_items()
+    def make_menu(self, paths):
+        all_are_dirs = True
+        readable, writable = G.get_access(paths[0])
+        for x in paths[1:]:
+            _r, _w = G.get_access(x)
+            readable = readable and _r
+            writable = writable and _w
+
+        for x in paths:
+            if not os.path.isdir(x):
+                all_are_dirs = False
+                break
+
         self.menu = Gtk.Menu()
 
-        if path != self.folder:
+        if paths[0] != self.folder or len(paths) > 1:
             item = Gtk.MenuItem(_('Open'))
             item.set_sensitive(readable)
             item.connect('activate', self.__open_from_menu)
             self.menu.append(item)
 
-            if os.path.isdir(path):
+            if all_are_dirs:
                 item = Gtk.MenuItem(_('Open in new tab'))
                 item.set_sensitive(readable)
                 item.connect('activate', self.__open_from_menu, True)
@@ -126,14 +144,18 @@ class View(Gtk.ScrolledWindow):
 
         item = Gtk.MenuItem(_('Cut'))  # Copy path to clipboard
         item.set_sensitive(writable)
+        item.connect('activate', self.cut)
         self.menu.append(item)
 
         item = Gtk.MenuItem(_('Copy'))  # Copy path to clipboard
         item.set_sensitive(readable)
+        item.connect('activate', self.copy)
         self.menu.append(item)
 
-        item = Gtk.MenuItem(_('Paste') if not os.path.isdir(path) else _('Paste on this folder'))  # Paste path from clipboard
+        paste = _('Paste') if os.path.isdir(paths[0]) and paths[0] == self.folder and len(paths) > 1 else _('Paste on this folder')
+        item = Gtk.MenuItem(paste)
         item.set_sensitive(writable)  # And clipboard has paths
+        item.connect('activate', self.paste)
         self.menu.append(item)
 
         self.menu.append(Gtk.SeparatorMenuItem())
@@ -169,12 +191,8 @@ class View(Gtk.ScrolledWindow):
         self.menu.show_all()
 
     def __open_from_menu(self, item, new_page=False):
-        selected = len(self.view.get_selected_items())
-        paths = []
-
-        for path in self.view.get_selected_items():
-            treeiter = self.model.get_iter(path)
-            paths.append(self.get_path_from_treeiter(treeiter))
+        paths = self.get_paths()
+        pahts = self.get_paths()
 
         if new_page:
             for path in paths:
@@ -190,14 +208,32 @@ class View(Gtk.ScrolledWindow):
         self.reverse = not self.reverse
 
     def __show_properties(self, item):
-        selected = len(self.view.get_selected_items())
+        paths = self.get_paths()
+        self.emit('show-properties', paths)
+
+    def get_paths(self):
         paths = []
 
         for path in self.view.get_selected_items():
             treeiter = self.model.get_iter(path)
             paths.append(self.get_path_from_treeiter(treeiter))
 
-        self.emit('show-properties', paths)
+        return paths
+
+    def cut(self, *args):
+        self.emit('cut', self.get_paths())
+
+    def copy(self, *args):
+        self.emit('copy', self.get_paths())
+
+    def paste(self, *args):
+        folder = self.folder
+        for path in self.get_paths():
+            if os.path.isdir(path):
+                folder = path
+                break
+
+        self.emit('paste', self.folder)
 
     def set_icon_size(self, icon_size):
         GObject.idle_add(self.model.clear)
@@ -294,6 +330,8 @@ class LateralView(Gtk.ScrolledWindow):
         'new-page': (GObject.SIGNAL_RUN_FIRST, None, [str]),
         'copy': (GObject.SIGNAL_RUN_FIRST, None, [str]),
         'show-properties': (GObject.SIGNAL_RUN_FIRST, None, [str]),
+        'copy': (GObject.SIGNAL_RUN_FIRST, None, [object]),
+        'paste': (GObject.SIGNAL_RUN_FIRST, None, [str]),
         }
 
     def __init__(self):

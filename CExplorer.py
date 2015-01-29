@@ -21,6 +21,7 @@ import os
 import globals as G
 
 from gi.repository import Gtk
+from gi.repository import Gdk
 from gi.repository import GObject
 
 from widgets import View
@@ -45,6 +46,7 @@ class CExplorer(Gtk.Window):
         self.icon_size = G.DEFAULT_ICON_SIZE
         self.pressed_keys = []
         self.shortcut = ''
+        self.clipborad = []
 
         self.vbox = Gtk.VBox()
 
@@ -259,6 +261,29 @@ class CExplorer(Gtk.Window):
         view.connect('item-selected', lambda *args: self.notebook.update_tab_labels())
         view.connect('new-page', lambda x, p: self.new_page(p))
         view.connect('show-properties', self.show_properties_for_paths)
+        view.connect('copy', self.copy)
+        view.connect('paste', self.paste)
+
+    def copy(self, view, paths):
+        print '__copy__'
+        self.clipborad = paths
+
+    def paste(self, view, folder):
+        print '__paste__'
+        self.scan_folder.can_scan = False
+        readable, writable = G.get_access(folder)
+
+        if not readable:
+            #  Agregar advertencia
+            return
+
+        for path in self.clipborad:
+            print path
+
+            _r, _w = G.get_access(path)
+            if not _r:
+                #  Agregar advertencia
+                continue
 
     def show_properties_for_paths(self, view, paths):
         if not paths:

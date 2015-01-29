@@ -228,12 +228,17 @@ class ScanFolder(GObject.GObject):
         self.folder = folder
         self.files = []
         self.show_hidden_files = False
+        self.can_scan = True
 
         GObject.timeout_add(timeout, self.scan)
 
     def scan(self, force=False):
+        if not self.can_scan:
+            return True
+
         files = []
         directories = []
+
         if (self.files != self.get_files()) or force:
             self.files = self.get_files()
 
