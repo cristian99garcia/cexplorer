@@ -376,79 +376,71 @@ def get_size_unity(size):
         return size / 1024 / 1024 / 1024 / 1024, 'TB'
 
 
-def get_size(path):
-    if type(path) == str:
-        writable, readable = get_access(path)
+def get_size(paths):
+    if type(paths) == str:
+        readable, writable = get_access(paths)
         if not readable:
             return ''
 
-    if type(path) == list:
-        folders = []
-        files = []
-        string = ''
-        quantity = 0
-        size = 0
+        patha = [paths]
 
-        for x in path:
-            if os.path.isdir(x):
-                folders.append(x)
+    folders = []
+    files = []
+    string = ''
+    quantity = 0
+    size = 0
 
-            elif os.path.isfile(x):
-                files.append(x)
+    for x in paths:
+        if os.path.isdir(x):
+            folders.append(x)
 
-        for x in folders:
-            quantity += len(os.listdir(x))
+        elif os.path.isfile(x):
+            files.append(x)
 
-        for x in files:
-            size += os.path.getsize(x)
+    for x in folders:
+        quantity += len(os.listdir(x))
 
-        if len(folders) and len(files):
-            if len(folders) > 1:
-                string = '%d %s %d %s ' % (len(folders), _('folders selecteds, contains'), quantity, _('items, and'))
+    for x in files:
+        size += os.path.getsize(x)
 
-            else:
-                string = '%s %s %d %s ' % (Dirs()[folders[0]], _('contains'), quantity, _('items, and'))
+    if len(folders) and len(files):
+        if len(folders) > 1:
+            string = '%d %s %d %s ' % (len(folders), _('folders selecteds, contains'), quantity, _('items, and'))
 
-            if len(files) > 1:
-                size, size_str = get_size_unity(size)
-                string += '%d %s %d%s' % (len(files), 'files selecteds, weight', size, size_str)
+        else:
+            string = '%s %s %d %s ' % (Dirs()[folders[0]], _('contains'), quantity, _('items, and'))
 
-            else:
-                size, size_str = get_size_unity(size)
-                string += '%s %s %d%s' % (Dirs()[files[0]], _('weight'), size, size_str)
-
-            string = string.replace('0 items', 'any items')
-            return string.replace('1 items', 'a item')
-
-        elif len(folders) and not len(files):
-            if len(folders) > 1:
-                string = '%d %s %d %s' % (len(folders),  _('folders selected, contains'), quantity, _('items'))
-
-            else:
-                string = '%s %d %s' % (_('Contains'), quantity, _('items'))
-
-            string = string.replace('0 items', 'any items')
-            return string.replace('1 items', 'a item')
-
-        elif not len(folders) and len(files):
+        if len(files) > 1:
             size, size_str = get_size_unity(size)
-            if len(files) > 1:
-                string = '%d %s %d%s' % (len(files), _('files selected, weight'), size, size_str)
-                return string.replace('1 files', 'A file')
+            string += '%d %s %d%s' % (len(files), 'files selecteds, weight', size, size_str)
 
-            else:
-                return '%d%s' % (size, size_str)
+        else:
+            size, size_str = get_size_unity(size)
+            string += '%s %s %d%s' % (Dirs()[files[0]], _('weight'), size, size_str)
 
-    if os.path.isdir(path):
-        text = _('Contains @ items').replace('@', str(len(os.listdir(path))))
-        text = text.replace('0 items', 'any items')
-        return text.replace('1 items', 'a item')
+        string = string.replace('0 items', 'any items')
+        return string.replace('1 items', 'a item')
 
-    elif os.path.isfile(path):
-        size = os.path.getsize(path)
+    elif len(folders) and not len(files):
+        if len(folders) > 1:
+            string = '%d %s %d %s' % (len(folders),  _('folders selected, contains'), quantity, _('items'))
+
+        else:
+            string = '%s %d %s' % (_('Contains'), quantity, _('items'))
+
+        string = string.replace('0 items', 'any items')
+        return string.replace('1 items', 'a item')
+
+    elif not len(folders) and len(files):
         size, size_str = get_size_unity(size)
+        if len(files) > 1:
+            string = '%d %s %d%s' % (len(files), _('files selected, weight'), size, size_str)
+            return string.replace('1 files', 'A file')
 
-        return 'Size: %d%s' % (size, size_str)
+        else:
+            return '%d%s' % (size, size_str)
+
+    return ''
 
 
 def get_type(path):

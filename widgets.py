@@ -100,18 +100,19 @@ class View(Gtk.ScrolledWindow):
             self.emit('item-selected', directory)
 
     def make_menu(self, path):
-        writable, readable = G.get_access(path)
+        readable, writable = G.get_access(path)
         selection = self.view.get_selected_items()
         self.menu = Gtk.Menu()
 
         if path != self.folder:
             item = Gtk.MenuItem(_('Open'))
-            item.connect('activate', self.__open_from_menu)
             item.set_sensitive(readable)
+            item.connect('activate', self.__open_from_menu)
             self.menu.append(item)
 
             if os.path.isdir(path):
                 item = Gtk.MenuItem(_('Open in new tab'))
+                item.set_sensitive(readable)
                 item.connect('activate', self.__open_from_menu, True)
                 self.menu.append(item)
 
@@ -580,9 +581,17 @@ class PlaceBox(Gtk.HBox):
         self.entry.set_text(folder)
         self.entry.set_position(-1)
 
+        if folder != '/' and folder.endswith('/'):
+            folder = folder[:-1]
+
+        if self.folder != '/' and self.folder.endswith('/'):
+            self.folder = self.folder[:-1]
+
+        home = G.HOME_DIR[:-1]
+
         if self.folder.startswith(folder) and \
             self.buttonbox.get_children() and \
-            (not G.HOME_DIR.startswith(self.folder) or \
+            ((self.folder.startswith(folder) and self.folder != '/home') or \
             not self.buttonbox.get_children()[0].get_children()[0].get_label() == G.HOME_NAME):
 
             self.folder = folder
@@ -593,15 +602,15 @@ class PlaceBox(Gtk.HBox):
         del self.buttons
         self.buttons = []
 
-        if not folder.startswith(G.HOME_DIR):
+        if not folder.startswith(home):
             self.buttons.append('/')
 
         while self.buttonbox.get_children():
             self.buttonbox.remove(self.buttonbox.get_children()[0])
 
-        if folder.startswith(G.HOME_DIR):
+        if folder.startswith(home):
             self.buttons.append(G.HOME_NAME)
-            folder = folder[len(G.HOME_DIR):]
+            folder = folder[len(home):]
             folder = folder[1:] if folder.startswith('/') else folder
 
         for x in folder.split('/'):
@@ -611,7 +620,7 @@ class PlaceBox(Gtk.HBox):
         path = ''
         for x in self.buttons:
             if x == G.HOME_NAME:
-                path += G.HOME_DIR + '/'
+                path += home + '/'
 
             else:
                 if not path.endswith('/'):
@@ -663,6 +672,7 @@ class StatusBar(Gtk.HBox):
 
         self.label = Gtk.Label(G.HOME_DIR)
         self.label.modify_font(Pango.FontDescription('12'))
+        self.label.set_ellipsize(Pango.EllipsizeMode.END)
         self.pack_start(self.label, False, False, 0)
 
         self.scale = Gtk.HScale.new_with_range(1, 8, 1)
@@ -686,37 +696,15 @@ class StatusBar(Gtk.HBox):
             directory = directory.replace('//', '/')
             selected.append(directory)
 
-        if not selected:
-            self.label.set_label(folder)
+        label = ''
+        if len(selected) == 0:
+            label += folder
 
         elif len(selected) == 1:
-            directory = selected[0]
-            self.label.set_label(directory + '    ' + G.get_size(directory))
+            label += selected[0]
 
-        elif len(selected) > 1:
-            folders = []
-            files = []
-            label = ''
-
-            for x in selected:
-                if os.path.isdir(x):
-                    folders.append(x)
-
-                if os.path.isfile(x):
-                    files.append(x)
-
-            if folders:
-                label = '%d %s' % (len(folders), _('folders selecteds'))
-
-            if folders and files:
-                label += ' %s ' % _('and')
-
-            if files:
-                label += '%d %s' % (len(files), _('files selecteds'))
-                if folders:
-                    label = label.replace(_('selecteds'), '') + _(' selecteds')
-
-            self.label.set_label(label)
+        label += G.get_size(selected)
+        self.label.set_label(label)
 
     def __value_changed(self, widget):
         value = int(widget.get_value())
@@ -737,6 +725,7 @@ class PropertiesWindow(Gtk.Dialog):
         self.dirs = G.Dirs()
         self.info_number = 0
         self.old_path = paths[0]
+        readable, writable = G.get_access(paths[0])
 
         hbox = Gtk.HBox()
         self.vbox.pack_start(hbox, False, False, 0)
@@ -748,6 +737,8 @@ class PropertiesWindow(Gtk.Dialog):
         self.entry = Gtk.Entry()
         self.entry.modify_font(Pango.FontDescription('20'))
         self.entry.set_text(self.dirs[paths[0]])
+        self.entry.set_sensitive(writable)
+
         self.entry.connect('activate', self.__rename_file)
         if len(paths) == 1:
             hbox.pack_start(self.entry, False, True, 10)
