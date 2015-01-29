@@ -40,7 +40,6 @@ class CExplorer(Gtk.Window):
         self.dirs = G.Dirs()
         self.folder = G.HOME_DIR
         self.folder_name = self.dirs[self.folder]
-        self.scan_folder = G.ScanFolder(self.folder)
         self.other_view = False
         self.view = None
         self.icon_size = G.DEFAULT_ICON_SIZE
@@ -48,37 +47,47 @@ class CExplorer(Gtk.Window):
         self.shortcut = ''
 
         self.vbox = Gtk.VBox()
-        self.paned = Gtk.HPaned()
-        self.place_box = PlaceBox()
-        self.lateral_view = LateralView()
-        self.notebook = Notebook()
-        self.infobar = InfoBar()
-        self.statusbar = StatusBar()
 
-        self.new_page()
+        self.infobar = InfoBar()
+        self.vbox.pack_start(self.infobar, False, False, 0)
+
+        self.paned = Gtk.HPaned()
+        self.vbox.pack_start(self.paned, True, True, 2)
+
         self.resize(620, 480)
         self.set_title(self.folder_name)
+
+        self.notebook = Notebook()
+        self.new_page()
+        self.notebook.connect('switch-page', self.__switch_page)
+        self.notebook.connect('new-page', lambda w, p: self.new_page(p))
+        self.notebook.connect('remove-page', self.__remove_page_from_notebook)
+        self.paned.pack2(self.notebook, True)
+
+        self.place_box = PlaceBox()
+        self.place_box.connect('go-up', self.go_up)
+        self.place_box.connect('change-directory', self.__item_selected)
         self.set_titlebar(self.place_box)
+
+        self.lateral_view = LateralView()
+        self.lateral_view.connect('item-selected', self.__item_selected)
+        self.lateral_view.connect('new-page', lambda l, p: self.new_page(p))
+        self.lateral_view.connect('show-properties',
+            lambda l, p: self.show_properties_for_paths(None, [p]))
+        self.lateral_view.select_item(G.HOME_DIR)
+        self.paned.pack1(self.lateral_view, False, True)
+
+        self.scan_folder = G.ScanFolder(self.folder)
+        self.scan_folder.connect('files-changed', self.update_icons)
+
+        self.statusbar = StatusBar()
+        self.statusbar.connect('icon-size-changed', self.__icon_size_changed)
+        self.vbox.pack_start(self.statusbar, False, False, 2)
 
         self.connect('realize', self.__realize_cb)
         self.connect('destroy', Gtk.main_quit)
         self.connect('key-press-event', self.__key_press_event_cb)
         self.connect('key-release-event', self.__key_release_event_cb)
-        self.place_box.connect('go-up', self.go_up)
-        self.place_box.connect('change-directory', self.__item_selected)
-        self.lateral_view.connect('item-selected', self.__item_selected)
-        self.notebook.connect('switch-page', self.__switch_page)
-        self.notebook.connect('new-page', lambda w, p: self.new_page(p))
-        self.notebook.connect('remove-page', self.__remove_page_from_notebook)
-        self.scan_folder.connect('files-changed', self.update_icons)
-        self.statusbar.connect('icon-size-changed', self.__icon_size_changed)
-
-        self.lateral_view.select_item(G.HOME_DIR)
-        self.paned.pack1(self.lateral_view, False, True)
-        self.paned.pack2(self.notebook, True)
-        self.vbox.pack_start(self.infobar, False, False, 0)
-        self.vbox.pack_start(self.paned, True, True, 2)
-        self.vbox.pack_start(self.statusbar, False, False, 2)
 
         self.add(self.vbox)
         self.show_all()

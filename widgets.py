@@ -289,7 +289,10 @@ class InfoBar(Gtk.InfoBar):
 class LateralView(Gtk.ScrolledWindow):
 
     __gsignals__ = {
-        'item-selected': (GObject.SIGNAL_RUN_FIRST, None, [str])
+        'item-selected': (GObject.SIGNAL_RUN_FIRST, None, [str]),
+        'new-page': (GObject.SIGNAL_RUN_FIRST, None, [str]),
+        'copy': (GObject.SIGNAL_RUN_FIRST, None, [str]),
+        'show-properties': (GObject.SIGNAL_RUN_FIRST, None, [str]),
         }
 
     def __init__(self):
@@ -354,14 +357,23 @@ class LateralView(Gtk.ScrolledWindow):
         self.menu = Gtk.Menu()
 
         item = Gtk.MenuItem(_('Open'))
+        item.connect('activate', lambda i: self.emit('item-selected', path))
         self.menu.append(item)
 
         item = Gtk.MenuItem(_('Open in new tab'))
+        item.connect('activate', lambda i: self.emit('new-page', path))
         self.menu.append(item)
 
         self.menu.append(Gtk.SeparatorMenuItem())
 
         item = Gtk.MenuItem(_('Copy'))  # Copy path to clipboard
+        item.connect('activate', lambda i: self.emit('copy'), path)
+        self.menu.append(item)
+
+        self.menu.append(Gtk.SeparatorMenuItem())
+
+        item = Gtk.MenuItem(_('Properties'))
+        item.connect('activate', lambda i: self.emit('show-properties', path))
         self.menu.append(item)
 
         self.menu.show_all()
