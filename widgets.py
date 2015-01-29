@@ -106,13 +106,13 @@ class View(Gtk.ScrolledWindow):
 
         if path != self.folder:
             item = Gtk.MenuItem(_('Open'))
-            item.connect('activate', self.__open_from_menu, path)
+            item.connect('activate', self.__open_from_menu)
             item.set_sensitive(readable)
             self.menu.append(item)
 
             if os.path.isdir(path):
                 item = Gtk.MenuItem(_('Open in new tab'))
-                item.connect('activate', self.__open_from_menu, None, True)
+                item.connect('activate', self.__open_from_menu, True)
                 self.menu.append(item)
 
             self.menu.append(Gtk.SeparatorMenuItem())
@@ -152,7 +152,7 @@ class View(Gtk.ScrolledWindow):
 
         self.menu.show_all()
 
-    def __open_from_menu(self, item, path=None, new_page=False):
+    def __open_from_menu(self, item, new_page=False):
         selected = len(self.view.get_selected_items())
         paths = []
 
@@ -164,7 +164,7 @@ class View(Gtk.ScrolledWindow):
             for path in paths:
                 self.emit('new-page', path)
 
-        elif new_page:
+        elif not new_page:
             self.emit('item-selected', paths)
 
     def __sort_changed(self, item, sort):
