@@ -118,6 +118,21 @@ class View(Gtk.ScrolledWindow):
             self.menu.append(Gtk.SeparatorMenuItem())
 
         item = Gtk.MenuItem(_('Create a folder'))
+        item.set_sensitive(writable)
+        self.menu.append(item)
+
+        self.menu.append(Gtk.SeparatorMenuItem())
+
+        item = Gtk.MenuItem(_('Cut'))  # Copy path to clipboard
+        item.set_sensitive(writable)
+        self.menu.append(item)
+
+        item = Gtk.MenuItem(_('Copy'))  # Copy path to clipboard
+        item.set_sensitive(readable)
+        self.menu.append(item)
+
+        item = Gtk.MenuItem(_('Paste') if not os.path.isdir(path) else _('Paste on this folder'))  # Paste path from clipboard
+        item.set_sensitive(writable)  # And clipboard has paths
         self.menu.append(item)
 
         self.menu.append(Gtk.SeparatorMenuItem())
@@ -281,7 +296,9 @@ class LateralView(Gtk.ScrolledWindow):
         Gtk.ScrolledWindow.__init__(self)
 
         self.rows = {}
+        self.paths = {}
         self.volume_monitor = Gio.VolumeMonitor.get()
+        self.menu = None
         self.view = Gtk.ListBox()
         #   view structur:
         #   GtkVBox:
@@ -291,6 +308,7 @@ class LateralView(Gtk.ScrolledWindow):
 
         self.dirs = G.Dirs()
         self.folder = None
+        self._emit = False
 
         self.view.set_selection_mode(Gtk.SelectionMode.SINGLE)
 
@@ -302,10 +320,15 @@ class LateralView(Gtk.ScrolledWindow):
         self.set_size_request(200, -1)
 
         self.view.connect('row-selected', self.__selection_changed)
+        self.view.connect('button-press-event', self.__button_press_event_cb)
         self.add(self.view)
 
     def __selection_changed(self, listview, row):
         if row and G.clear_path(row.path) == self.folder:
+            return
+
+        if not self._emit:
+            self._emit = True
             return
 
         for path, _row in self.rows.items():
@@ -313,6 +336,35 @@ class LateralView(Gtk.ScrolledWindow):
                 self.folder = G.clear_path(row.path)
                 self.emit('item-selected', self.folder)
                 break
+
+    def __button_press_event_cb(self, listview, event):
+        if event.button == 3:
+            row =  self.view.get_row_at_y(event.y)
+            if not row:
+                return
+
+            self._emit = False
+            self.view.select_row(row)
+            self.make_menu(row)
+            self.menu.popup(None, None, None, None, event.button, event.time)
+            return True
+
+    def make_menu(self, row):
+        path = self.paths[row]
+        self.menu = Gtk.Menu()
+
+        item = Gtk.MenuItem(_('Open'))
+        self.menu.append(item)
+
+        item = Gtk.MenuItem(_('Open in new tab'))
+        self.menu.append(item)
+
+        self.menu.append(Gtk.SeparatorMenuItem())
+
+        item = Gtk.MenuItem(_('Copy'))  # Copy path to clipboard
+        self.menu.append(item)
+
+        self.menu.show_all()
 
     def make_items(self):
         for x in self.dirs:
@@ -340,6 +392,7 @@ class LateralView(Gtk.ScrolledWindow):
         self.view.add(row)
 
         self.rows[path] = row
+        self.paths[row] = path
         # if is a mount: add levelbar and umount_button
 
     def select_item(self, path):
@@ -351,9 +404,7 @@ class LateralView(Gtk.ScrolledWindow):
             self.folder = G.clear_path(self.folder)
 
         if not path in self.rows:
-            self.view.set_selection_mode(Gtk.SelectionMode.NONE)
-            self.view.set_selection_mode(Gtk.SelectionMode.SINGLE)
-            # Unselecting all items
+            self.view.select_row(None)
             return
 
         if path == self.folder and self.view.get_selected_row():
