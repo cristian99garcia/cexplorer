@@ -85,7 +85,7 @@ class CExplorer(Gtk.Window):
         self.vbox.pack_start(self.statusbar, False, False, 2)
 
         self.connect('realize', self.__realize_cb)
-        self.connect('destroy', Gtk.main_quit)
+        self.connect('destroy', self._exit)
         self.connect('key-press-event', self.__key_press_event_cb)
         self.connect('key-release-event', self.__key_release_event_cb)
 
@@ -185,16 +185,40 @@ class CExplorer(Gtk.Window):
         if self.shortcut  == 'Ctrl+l':
             self.place_box.change_mode()
 
-    def remove_page(self, idx=None, view=None):
+        elif self.shortcut == 'Ctrl+w':
+            self.remove_page(close=True)
+
+        elif self.shortcut == 'Ctrl+t':
+            self.new_page()
+
+        elif self.shortcut == 'Ctrl+h':
+            self.scan_folder.set_show_hidden_files(not self.scan_folder.show_hidden_files)
+
+        elif self.shortcut == 'Ctrl+f':
+            print 'Search files'
+
+        elif self.shortcut == 'Ctrl+n':
+            print 'New window'
+
+        elif self.shortcut == 'Ctrl++':
+            print 'Aument'
+
+        elif self.shortcut == 'Ctrl+-':
+            print 'Disminuit'
+
+    def remove_page(self, idx=None, view=None, close=False):
         if not view:
             if idx is None:
-                idx = self.get_current_page()
+                idx = self.notebook.get_current_page()
 
             view = self.notebook.get_children()[idx]
 
         self.notebook.remove(view)
-        if not self.notebook.get_children():
+        if not self.notebook.get_children() and not close:
             self.new_page()
+
+        elif not self.notebook.get_children() and close:
+            self._exit()
 
         self.notebook.set_show_tabs(len(self.notebook.get_children()) > 1)
 
@@ -279,6 +303,10 @@ class CExplorer(Gtk.Window):
         else:
             self.other_view = False
             return self.view
+
+    def _exit(self, *args):
+        #  Check actuals process
+        Gtk.main_quit()
 
 
 if __name__ == '__main__':
