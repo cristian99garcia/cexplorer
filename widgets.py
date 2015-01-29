@@ -502,7 +502,17 @@ class Notebook(Gtk.Notebook):
     def __close_page(self, button, view):
         self.emit('remove-page', view)
 
+    def __scroll_event_cb(self, widget, event):
+        if event.direction == Gdk.ScrollDirection.UP:
+            if self.get_current_page() > 0:
+                self.prev_page()
+
+        elif event.direction == Gdk.ScrollDirection.DOWN:
+            if self.get_current_page() < len(self.get_children()):
+                self.next_page()
+
     def create_page_from_path(self, path):
+        eventbox = Gtk.EventBox()
         hbox = Gtk.HBox()
         label = Gtk.Label(G.Dirs()[path])
         button = Gtk.ToolButton.new_from_stock(Gtk.STOCK_CLOSE)
@@ -512,9 +522,12 @@ class Notebook(Gtk.Notebook):
 
         hbox.pack_start(label, False, False, 10)
         hbox.pack_end(button, False, False, 0)
-        self.append_page(view, hbox)
-        hbox.show_all()
+        eventbox.add(hbox)
+        self.append_page(view, eventbox)
+        eventbox.show_all()
         self.show_all()
+
+        eventbox.connect('scroll-event', self.__scroll_event_cb)
 
         self.set_show_tabs(len(self.get_children()) > 1)
         self.set_current_page(self.get_n_pages() - 1)
@@ -523,7 +536,8 @@ class Notebook(Gtk.Notebook):
 
     def update_tab_labels(self):
         for view in self.get_children():
-            hbox = self.get_tab_label(view)
+            eventbox = self.get_tab_label(view)
+            hbox = eventbox.get_children()[0]
             label = hbox.get_children()[0]
             label.set_label(G.Dirs()[view.folder])
 
