@@ -354,12 +354,15 @@ class LateralView(Gtk.ScrolledWindow):
 
         self.view.set_selection_mode(Gtk.SelectionMode.SINGLE)
 
-        #self.volume_monitor.connect('mount-added', self.add_mount)
+        self.volume_monitor.connect('mount-added', self.add_mount)
         #self.volume_monitor.connect('mount-removed', self.remove_mount)
 
         self.make_items()
         self.select_item(G.HOME_DIR)
         self.set_size_request(200, -1)
+
+        for volume in self.volume_monitor.get_volumes():
+            self.add_mount(self.volume_monitor, volume)
 
         self.view.connect('row-selected', self.__selection_changed)
         self.view.connect('button-press-event', self.__button_press_event_cb)
@@ -418,12 +421,16 @@ class LateralView(Gtk.ScrolledWindow):
         self.menu.show_all()
 
     def make_items(self):
-        for x in self.dirs:
-            self.add_home_folder(x)
+        for x in self.dirs[:-1]:
+            self.add_folder(x)
 
-    def add_home_folder(self, path):
-        name = self.dirs[path]
-        pixbuf = self.dirs.get_pixbuf_symbolic(path)
+    def add_folder(self, path, mount=False, pixbuf=None, name=None, mounted=False):
+        if not pixbuf:
+            pixbuf = self.dirs.get_pixbuf_symbolic(path)
+
+        if not name:
+            name = self.dirs[path]
+
         image = Gtk.Image.new_from_pixbuf(pixbuf)
 
         row = Gtk.ListBoxRow()
@@ -431,14 +438,22 @@ class LateralView(Gtk.ScrolledWindow):
         vbox = Gtk.VBox()
         hbox = Gtk.HBox()
         label = Gtk.Label(name)
+        label.set_ellipsize(Pango.EllipsizeMode.END)
         umount_button = Gtk.ToolButton.new_from_stock(Gtk.STOCK_REMOVE)
         levelbar = Gtk.LevelBar()
 
         hbox.pack_start(image, False, False, 10)
         hbox.pack_start(label, False, False, 5)
-        #hbox.pack_start(umount_button, False, False, 0)
         vbox.pack_start(hbox, False, False, 2)
-        #vbox.pack_start(levelbar, False, False, 0)
+
+        if mount and mounted:
+            total_space, used_space, free_space = G.get_mount_space(path)
+            levelbar.set_min_value(0)
+            levelbar.set_max_value(total_space)
+            levelbar.set_value(used_space)
+            hbox.pack_start(umount_button, False, False, 0)
+            vbox.pack_start(levelbar, False, False, 0)
+
         row.add(vbox)
         self.view.add(row)
 
@@ -463,16 +478,22 @@ class LateralView(Gtk.ScrolledWindow):
 
         self.view.select_row(self.rows[path])
 
-    def add_mount(self, device):
-        if not self.label_mount_added:
-            self.label_mount_added = True
-            self.append_section(_('Mounts'))
+    def add_mount(self, volume_monitor, device):
+        if hasattr(device, 'get_default_location'):
+            gfile = device.get_default_location()
+            path = gfile.get_path()
+            mounted = True
 
-        item = TreeViewMountItem(device, False)
-        self.items.append(item)
-        self.view.pack_start(item, False, False, 0)
+        else:
+            path = ''
+            mounted = bool(device.get_mount())
 
-        item.show_all()
+        icons = device.get_symbolic_icon().get_names()
+        icon_theme = Gtk.IconTheme()
+        pixbuf = icon_theme.choose_icon(icons, G.DEFAULT_ITEM_ICON_SIZE, 0).load_icon()
+        name = device.get_name()
+        self.add_folder(path, True, pixbuf, name, mounted)
+        self.show_all()
 
     def remove_mount(self, *args):
         print args

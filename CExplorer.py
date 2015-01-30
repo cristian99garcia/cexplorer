@@ -184,6 +184,7 @@ class CExplorer(Gtk.Window):
         os.rename(old_path, new_path)
 
     def check_shortcut(self):
+        #  FIXME: agregar funcionalidad para buscar archivos
         if self.shortcut  == 'Ctrl+l':
             self.place_box.change_mode()
 

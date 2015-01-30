@@ -20,6 +20,7 @@
 import os
 import re
 import time
+import subprocess
 import ConfigParser
 from gettext import gettext as _
 
@@ -42,7 +43,7 @@ def clear_path(path):
 
 
 DEFAULT_ICON_SIZE = 48
-DEFAULT_ITEM_ICON_SIZE = 32
+DEFAULT_ITEM_ICON_SIZE = 16
 
 ERROR_NOT_READABLE = 0
 ERROR_NOT_UNWRITABLE = 1
@@ -152,25 +153,32 @@ class Dirs(object):
         >>> print dirs['/home/cristian/']  # Get name from another directory
         ... 'cristian'
         """
-        path = clear_path(path)
+        if type(path) == int:
+            return self.dirs[path]
 
-        if path in self.specials_dirs:
-            return self.specials_dirs[path]
+        elif type(path) == slice:
+            return self.dirs[path.start:path.stop:path.step]
 
-        else:
-            if path.endswith('.desktop'):
-                cfg = ConfigParser.ConfigParser()
-                cfg.read([path])
+        elif type(path) == str:
+            path = clear_path(path)
 
-                if cfg.has_option('Desktop Entry', 'Name'):
-                    return cfg.get('Desktop Entry', 'Name')
+            if path in self.specials_dirs:
+                return self.specials_dirs[path]
 
-            name = '/'
-            for x in path.split('/'):
-                if x:
-                    name = x
+            else:
+                if path.endswith('.desktop'):
+                    cfg = ConfigParser.ConfigParser()
+                    cfg.read([path])
 
-            return name
+                    if cfg.has_option('Desktop Entry', 'Name'):
+                        return cfg.get('Desktop Entry', 'Name')
+
+                name = '/'
+                for x in path.split('/'):
+                    if x:
+                        name = x
+
+                return name
 
     def __setitem__(self, name, value):
         if not name in self[name]:
@@ -211,7 +219,7 @@ class Dirs(object):
 
     def get_pixbuf_symbolic(self, path):
         icon_theme = Gtk.IconTheme()
-        return icon_theme.load_icon(self.symbolic_icons[path], 16, 0)
+        return icon_theme.load_icon(self.symbolic_icons[path], DEFAULT_ITEM_ICON_SIZE, 0)
 
 
 class ScanFolder(GObject.GObject):
@@ -472,3 +480,23 @@ def get_created_time(path):
 
 def get_modified_time(path):
     return time.ctime(os.path.getmtime(path))
+
+
+def get_mount_space(path):
+    df = subprocess.Popen(["df"], stdout=subprocess.PIPE)
+    output = df.communicate()[0]
+
+    for info in output.splitlines()[1:]:
+        data = info.split()
+        device = data[0]
+        total_space = data[1]
+        used_space = data[2]
+        free_space = data[3]
+        porcentaje = data[4]
+        mount = data[5]
+
+        if clear_path(mount) == clear_path(path):
+            return int(total_space), int(used_space), int(free_space)
+
+    return (0, 0, 0, 0)
+
