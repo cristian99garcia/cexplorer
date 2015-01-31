@@ -350,7 +350,7 @@ class LateralView(Gtk.ScrolledWindow):
 
         self.dirs = G.Dirs()
         self.folder = None
-        self._emit = False
+        self._emit = True
 
         self.view.set_selection_mode(Gtk.SelectionMode.SINGLE)
 
@@ -377,7 +377,7 @@ class LateralView(Gtk.ScrolledWindow):
             return
 
         for path, _row in self.rows.items():
-            if _row == row:
+            if _row == row and path not in ['', 'None']:
                 self.folder = G.clear_path(row.path)
                 self.emit('item-selected', self.folder)
                 break
@@ -421,8 +421,8 @@ class LateralView(Gtk.ScrolledWindow):
         self.menu.show_all()
 
     def make_items(self):
-        for x in self.dirs[:-1]:
-            self.add_folder(x)
+        for x in self.dirs:
+            self.add_folder(x, mount=x=='/', mounted=x=='/')
 
     def add_folder(self, path, mount=False, pixbuf=None, name=None, mounted=False):
         if not pixbuf:
@@ -448,6 +448,7 @@ class LateralView(Gtk.ScrolledWindow):
 
         if mount and mounted:
             total_space, used_space, free_space = G.get_mount_space(path)
+
             levelbar.set_min_value(0)
             levelbar.set_max_value(total_space)
             levelbar.set_value(used_space)
@@ -479,19 +480,20 @@ class LateralView(Gtk.ScrolledWindow):
         self.view.select_row(self.rows[path])
 
     def add_mount(self, volume_monitor, device):
+        name = device.get_name()
+
         if hasattr(device, 'get_default_location'):
             gfile = device.get_default_location()
             path = gfile.get_path()
             mounted = True
 
         else:
-            path = ''
+            path = 'None'#os.path.join('/media/cristian', name)
             mounted = bool(device.get_mount())
 
         icons = device.get_symbolic_icon().get_names()
         icon_theme = Gtk.IconTheme()
         pixbuf = icon_theme.choose_icon(icons, G.DEFAULT_ITEM_ICON_SIZE, 0).load_icon()
-        name = device.get_name()
         self.add_folder(path, True, pixbuf, name, mounted)
         self.show_all()
 

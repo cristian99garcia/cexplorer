@@ -372,21 +372,12 @@ def natural_sort(_list):
     return sorted(_list, key=alphanum_key)
 
 
-def get_size_unity(size):
-    if size < 1024:
-        return size, 'B'
+def get_size_unity(num):
+    for unit in ['B','KB','MB','GB','TB','PB','EB','ZB']:
+        if abs(num) < 1024.0:
+            return "%3.1f%s" % (num, unit)
 
-    elif size >= 1024 and size < 1024 ** 2:
-        return size / 1024, 'KB'
-
-    elif size >= 1024 ** 2 and size < 1024 ** 3:
-        return size / 1024 / 1024, 'MB'
-
-    elif size >= 1024 ** 3 and size < 1024 ** 4:
-        return size / 1024 / 1024 / 1024, 'GB'
-
-    elif size >= 1024 ** 4:
-        return size / 1024 / 1024 / 1024 / 1024, 'TB'
+        num /= 1024.0
 
 
 def get_size(paths):
@@ -424,12 +415,12 @@ def get_size(paths):
             string = '%s %s %d %s ' % (Dirs()[folders[0]], _('contains'), quantity, _('items, and'))
 
         if len(files) > 1:
-            size, size_str = get_size_unity(size)
-            string += '%d %s %d%s' % (len(files), 'files selecteds, weight', size, size_str)
+            size_str = get_size_unity(size)
+            string += '%d %s %s' % (len(files), 'files selecteds, weight', size, size_str)
 
         else:
-            size, size_str = get_size_unity(size)
-            string += '%s %s %d%s' % (Dirs()[files[0]], _('weight'), size, size_str)
+            size_str = get_size_unity(size)
+            string += '%s %s %s' % (Dirs()[files[0]], _('weight'), size_str)
 
         string = string.replace('0 items', 'any items')
         return string.replace('1 items', 'a item')
@@ -445,19 +436,20 @@ def get_size(paths):
         return string.replace('1 items', 'a item')
 
     elif not len(folders) and len(files):
-        size, size_str = get_size_unity(size)
+        size_str = get_size_unity(size)
         if len(files) > 1:
-            string = '%d %s %d%s' % (len(files), _('files selected, weight'), size, size_str)
+            string = '%d %s %s' % (len(files), _('files selected, weight'), size_str)
             return string.replace('1 files', 'A file')
 
         else:
-            return '%d%s' % (size, size_str)
+            return size_str
 
     return ''
 
 
 def get_type(path):
     unknown = 'application/octet-stream'
+    path = path.replace(' ', '\ ')
     mime_type = Gio.content_type_guess(path, data=None)[0]
     if mime_type != unknown:
         return mime_type
@@ -483,6 +475,7 @@ def get_modified_time(path):
 
 
 def get_mount_space(path):
+    path = path.replace(' ', '\ ')
     df = subprocess.Popen(["df"], stdout=subprocess.PIPE)
     output = df.communicate()[0]
 
@@ -498,5 +491,5 @@ def get_mount_space(path):
         if clear_path(mount) == clear_path(path):
             return int(total_space), int(used_space), int(free_space)
 
-    return (0, 0, 0, 0)
+    return (0, 0, 0)
 
