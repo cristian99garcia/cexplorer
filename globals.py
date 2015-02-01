@@ -237,6 +237,7 @@ class ScanFolder(GObject.GObject):
         self.files = []
         self.show_hidden_files = False
         self.can_scan = True
+        self.mounts = {}
 
         GObject.timeout_add(timeout, self.scan)
 
@@ -263,7 +264,12 @@ class ScanFolder(GObject.GObject):
     def get_files(self):
         directories = []
         files = []
-        _files = os.listdir(self.folder)
+        if os.path.isdir(self.folder):
+            _files = os.listdir(self.folder)
+
+        else:
+            self.folder = get_parent_directory(self.folder)
+            return
 
         for name in _files:
             filename = os.path.join(self.folder, name)

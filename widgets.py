@@ -355,7 +355,7 @@ class LateralView(Gtk.ScrolledWindow):
         self.view.set_selection_mode(Gtk.SelectionMode.SINGLE)
 
         self.volume_monitor.connect('mount-added', self.add_mount)
-        #self.volume_monitor.connect('mount-removed', self.remove_mount)
+        self.volume_monitor.connect('mount-removed', self.remove_mount)
 
         self.make_items()
         self.select_item(G.HOME_DIR)
@@ -368,21 +368,61 @@ class LateralView(Gtk.ScrolledWindow):
         self.view.connect('button-press-event', self.__button_press_event_cb)
         self.add(self.view)
 
-    def __selection_changed(self, listview, row):
-        if row and G.clear_path(row.path) == self.folder:
+    def __selection_changed(self, listbox, row):
+        def mount_done_cb(obj, res, user_data):
+            from gi.repository import GLib
+            try:
+                obj.mount_finish(res)
+
+            except GLib.Error as e: # GLib.Error
+                print e
+                pass
+
+            self.folder = G.clear_path(obj.get_mount().get_root().get_path())
+            self.emit('item-selected', self.folder)
+            user_data.quit()
+
+        if not row or G.clear_path(row.path) == self.folder:
             return
 
         if not self._emit:
             self._emit = True
             return
 
+        #print row.device_data
+
         for path, _row in self.rows.items():
-            if _row == row and path not in ['', 'None']:
+            if _row == row and path != 'None':
                 self.folder = G.clear_path(row.path)
                 self.emit('item-selected', self.folder)
                 break
 
-    def __button_press_event_cb(self, listview, event):
+            elif path == 'None' and row.device_data:
+                loop = GObject.MainLoop()
+                found = False
+                device = row.device_data['device']
+                mount_operation = Gio.MountOperation()
+                mount_operation.set_anonymous(True)
+
+                if device and not row.device_data['mounted']:
+                    device.mount(0, mount_operation, None, mount_done_cb, loop)
+
+                elif device and row.device_data['mounted']:
+                    self.folder = G.clear_path(device.get_mount().get_root().get_path())
+                    self.emit('item-selected', self.folder)
+                    break
+
+                elif not device and row.device_data['path']:
+                    self.folder = G.clear_path(row.device_data['path'])
+                    self.emit('item-selected', self.folder)
+                    break
+
+                if found:
+                    loop.run()
+
+                break
+
+    def __button_press_event_cb(self, listbox, event):
         if event.button == 3:
             row =  self.view.get_row_at_y(event.y)
             if not row:
@@ -422,19 +462,34 @@ class LateralView(Gtk.ScrolledWindow):
 
     def make_items(self):
         for x in self.dirs:
-            self.add_folder(x, mount=x=='/', mounted=x=='/')
+            if x != '/':
+                self.add_folder(x)
 
-    def add_folder(self, path, mount=False, pixbuf=None, name=None, mounted=False):
-        if not pixbuf:
+            else:
+                data = {'mounted': True, 'umontable': False, 'path': '/',
+                        'name': self.dirs['/'], 'device': None,
+                        'pixbuf': self.dirs.get_pixbuf_symbolic('/')}
+
+                self.add_folder(device=data)
+
+    def add_folder(self, path=None, device=None):
+        if path and not path in self.dirs:
+            self.remove_mount(path)
+
+        if device:
+            path = device['path']
+            name = device['name']
+            pixbuf = device['pixbuf']
+
+        else:
             pixbuf = self.dirs.get_pixbuf_symbolic(path)
-
-        if not name:
             name = self.dirs[path]
 
         image = Gtk.Image.new_from_pixbuf(pixbuf)
 
         row = Gtk.ListBoxRow()
         row.path = path
+        row.device_data = device
         vbox = Gtk.VBox()
         hbox = Gtk.HBox()
         label = Gtk.Label(name)
@@ -446,13 +501,15 @@ class LateralView(Gtk.ScrolledWindow):
         hbox.pack_start(label, False, False, 5)
         vbox.pack_start(hbox, False, False, 2)
 
-        if mount and mounted:
+        if device and device['mounted']:
             total_space, used_space, free_space = G.get_mount_space(path)
 
             levelbar.set_min_value(0)
             levelbar.set_max_value(total_space)
             levelbar.set_value(used_space)
-            hbox.pack_start(umount_button, False, False, 0)
+            if device['umontable']:
+                hbox.pack_start(umount_button, False, False, 0)
+
             vbox.pack_start(levelbar, False, False, 0)
 
         row.add(vbox)
@@ -460,7 +517,6 @@ class LateralView(Gtk.ScrolledWindow):
 
         self.rows[path] = row
         self.paths[row] = path
-        # if is a mount: add levelbar and umount_button
 
     def select_item(self, path):
         path = G.clear_path(path)
@@ -480,25 +536,49 @@ class LateralView(Gtk.ScrolledWindow):
         self.view.select_row(self.rows[path])
 
     def add_mount(self, volume_monitor, device):
+        device_data = {}
         name = device.get_name()
 
         if hasattr(device, 'get_default_location'):
             gfile = device.get_default_location()
             path = gfile.get_path()
-            mounted = True
 
         else:
             path = 'None'#os.path.join('/media/cristian', name)
-            mounted = bool(device.get_mount())
+
+        mounted = bool(device.get_mount())
 
         icons = device.get_symbolic_icon().get_names()
         icon_theme = Gtk.IconTheme()
         pixbuf = icon_theme.choose_icon(icons, G.DEFAULT_ITEM_ICON_SIZE, 0).load_icon()
-        self.add_folder(path, True, pixbuf, name, mounted)
+        device_data['path'] = path
+        device_data['name'] = name
+        device_data['pixbuf'] = pixbuf
+        device_data['device'] = device
+        device_data['mounted'] = mounted
+        device_data['umontable'] = True
+        self.dirs[G.clear_path(path)] = name
+        self.add_folder(device=device_data)
         self.show_all()
 
-    def remove_mount(self, *args):
-        print args
+    def remove_mount(self, volume_monitor=None, device=None, path=None):
+        if device and not path:
+            gfile = device.get_default_location()
+            path = gfile.get_path()
+
+        if not path:
+            return
+
+        for row, _path in self.paths.items():
+            if not _path:
+                continue
+
+            if G.clear_path(path) == G.clear_path(_path):
+                self.view.remove(row)
+                break
+
+        if G.clear_path(self.folder) == G.clear_path(path):
+            self.emit('item-selected', G.get_parent_directory(path))
 
 
 class Notebook(Gtk.Notebook):

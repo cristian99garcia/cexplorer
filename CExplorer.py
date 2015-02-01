@@ -312,7 +312,9 @@ class CExplorer(Gtk.Window):
         #self.place_box.button_left.set_sensitive(bool(view.history))
         #self.place_box.button_right.set_sensitive(bool(view.history))
         self.place_box.button_up.set_sensitive(view.folder != G.SYSTEM_DIR)
-        self.lateral_view.select_item(self.folder)
+        if self.lateral_view.folder != self.folder:
+            self.lateral_view.select_item(self.folder)
+
         self.scan_folder.set_folder(view.folder)
         self.scan_folder.scan(force=update_icons)
         self.notebook.update_tab_labels()
