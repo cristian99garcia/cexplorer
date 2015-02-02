@@ -300,7 +300,7 @@ class InfoBar(Gtk.InfoBar):
         vbox.pack_start(self.msg, False, False, 0)
 
     def __hide(self, widget, response=None):
-        self.hide()
+        GObject.idle_add(self.hide)
 
     def set_msg(self, msg_type, info):
         if msg_type == G.ERROR_NOT_READABLE:
@@ -385,33 +385,49 @@ class LateralView(Gtk.ScrolledWindow):
             if 'umontable' in data and not data['umontable']:
                 data['button-close'].hide()
 
-    def mount_finish(self, obj, res, user_data):
-        from gi.repository import GLib
-        try:
-            obj.mount_finish(res)
+    def mount_done_cb(self, volume, result, loop, row):
+        volume.mount_finish(result)
+        loop.quit()
 
-        except GLib.Error as e: # GLib.Error
-            print e
-            pass
-
-        print obj
-        self.folder = G.clear_path(obj.get_mount().get_root().get_path())
+        self.folder = volume.get_mount().get_root().get_path()
+        self.dirs.add_mount(self.folder)
+        row.path = self.folder
+        row.data['path'] = self.folder
         self.emit('item-selected', self.folder)
-        user_data.quit()
 
-        if not row or G.clear_path(row.path) == self.folder:
-            return
+        total_space, used_space, free_space = G.get_mount_space(self.folder)
+        row.data['levelbar'].set_min_value(0)
+        row.data['levelbar'].set_max_value(total_space)
+        row.data['levelbar'].set_value(used_space)
+        row.data['levelbar'].show()
 
-        if not self._emit:
-            self._emit = True
-            return
+        if not 'umontable' in row.data or ('umontable' in row.data and row.data['umontable']):
+            row.data['button-close'].show_all()
 
     def __selection_changed(self, listbox, row):
-        for path, _row in self.rows.items():
-            if _row == row and path != 'None':
-                self.folder = G.clear_path(row.path)
+        if not row:
+            return
+
+        if not hasattr(row, 'data'):
+            self.folder = row._path
+            self.emit('item-selected', self.folder)
+
+        elif hasattr(row, 'data'):
+            data = row.data
+            if data['path']:
+                self.folder = data['path']
                 self.emit('item-selected', self.folder)
-                break
+
+            else:
+                if not data['mounted']:
+                #  Try mount
+                    mo = Gio.MountOperation()
+                    mo.set_anonymous(True)
+                    loop = GObject.MainLoop()
+                    data['volume'].mount(0, mo, None, self.mount_done_cb, loop, row)
+                    loop.run()
+
+        """
 
             elif path == 'None' and row.device_data:
                 loop = GObject.MainLoop()
@@ -437,7 +453,7 @@ class LateralView(Gtk.ScrolledWindow):
                     loop.run()
 
                 break
-
+        """
     def __button_press_event_cb(self, listbox, event):
         if event.button == 3:
             row =  self.view.get_row_at_y(event.y)
@@ -497,7 +513,7 @@ class LateralView(Gtk.ScrolledWindow):
         image = Gtk.Image.new_from_pixbuf(pixbuf)
 
         row = Gtk.ListBoxRow()
-        row.path = path
+        row._path = path
         vbox = Gtk.VBox()
         hbox = Gtk.HBox()
         label = Gtk.Label(name)
@@ -520,10 +536,9 @@ class LateralView(Gtk.ScrolledWindow):
         if not self.folder:
             self.folder = G.HOME_DIR
 
-        if self.folder:
-            self.folder = G.clear_path(self.folder)
+        self.folder = G.clear_path(self.folder)
 
-        if not path in self.rows:
+        if not path in self.dirs:
             self.view.select_row(None)
             return
 
@@ -552,6 +567,8 @@ class LateralView(Gtk.ScrolledWindow):
             elif 'path' in data:
                 path = data['path']
 
+            self.dirs.add_mount(path)
+
             total_space, used_space, free_space = G.get_mount_space(path)
             levelbar.set_min_value(0)
             levelbar.set_max_value(total_space)
@@ -567,6 +584,7 @@ class LateralView(Gtk.ScrolledWindow):
             hbox.pack_end(button_close, False, False, 10)
 
             row = Gtk.ListBoxRow()
+            row._path = path
             row.data = data
             row.data['hbox'] = hbox
             row.data['row'] = row
@@ -578,6 +596,9 @@ class LateralView(Gtk.ScrolledWindow):
             row.add(hbox)
             self.view.add(row)
             row.show_all()
+
+            self.rows[path] = row
+            self.paths[row] = path
 
             if ('volume' in data and not data['volume'].get_mount()) or ('mounted' in data and not data['mounted']):
                 levelbar.hide()
@@ -600,8 +621,13 @@ class LateralView(Gtk.ScrolledWindow):
                 continue
 
             if _row.data['name'] == name:
-                mounted = bool(volume.get_mount())
-                mount = volume.get_mount()
+                if hasattr(volume, 'get_mount'):
+                    mounted = bool(volume.get_mount())
+                    mount = volume.get_mount()
+
+                else:
+                    mount = volume
+
                 _row.data['mount'] = mount
 
                 if not mount:
@@ -611,7 +637,9 @@ class LateralView(Gtk.ScrolledWindow):
 
                 gfile = mount.get_root()
                 path = gfile.get_path()
-                total_space, used_space = get_mount_space(path)
+                total_space, used_space, free_space = G.get_mount_space(path)
+
+                self.dirs.add_mount(path)
 
                 _row.data['levelbar'].set_min_value(0)
                 _row.data['levelbar'].set_max_value(total_space)
@@ -644,7 +672,9 @@ class LateralView(Gtk.ScrolledWindow):
             mount = volume.get_mount()
             gfile = mount.get_root()
             path = gfile.get_path()
-            total_space, used_space = get_mount_space(path)
+            total_space, used_space, free_space = G.get_mount_space(path)
+
+            self.dirs.add_mount(path)
 
             levelbar.set_min_value(0)
             levelbar.set_max_value(total_space)
@@ -654,6 +684,7 @@ class LateralView(Gtk.ScrolledWindow):
         hbox.pack_start(button_close, False, False, 10)
 
         row = Gtk.ListBoxRow()
+        row._path = path
         row.add(hbox)
 
         data = {}
@@ -670,6 +701,8 @@ class LateralView(Gtk.ScrolledWindow):
         data['hbox'] = hbox
         row.data = data
 
+        self.rows[path] = row
+        self.paths[row] = path
         #button_close.connect('button-release-event', self.button_release_event, data)
 
         self.view.add(row)
@@ -683,6 +716,7 @@ class LateralView(Gtk.ScrolledWindow):
         if device and not path:
             gfile = device.get_default_location()
             path = gfile.get_path()
+            #self.dirs.remove_mount(path)
 
         if not path:
             return

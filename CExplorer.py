@@ -278,7 +278,7 @@ class CExplorer(Gtk.Window):
             return
 
         for path in self.clipborad:
-            print path
+            print 101010101, path
 
             _r, _w = G.get_access(path)
             if not _r:

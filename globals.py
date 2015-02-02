@@ -205,6 +205,9 @@ class Dirs(object):
         if name in self.dirs + self.names:
             return True
 
+        if clear_path(name) in self.mounts:
+            return True
+
         for x in self.dirs:
             if not x.endswith('/'):
                 x += '/'
@@ -220,6 +223,15 @@ class Dirs(object):
     def get_pixbuf_symbolic(self, path):
         icon_theme = Gtk.IconTheme()
         return icon_theme.load_icon(self.symbolic_icons[path], DEFAULT_ITEM_ICON_SIZE, 0)
+
+    def add_mount(self, path):
+        if not clear_path(path) in self.mounts:
+            self.mounts.append(clear_path(path))
+
+    def remove_mount(self, path):
+        print path
+        if clear_path(path) in self.mounts:
+            self.mounts.remove(clear_path(path))
 
 
 class ScanFolder(GObject.GObject):
@@ -482,7 +494,6 @@ def get_modified_time(path):
 
 
 def get_mount_space(path):
-    print path
     df = subprocess.Popen(["df"], stdout=subprocess.PIPE)
     output = df.communicate()[0]
 
@@ -500,3 +511,6 @@ def get_mount_space(path):
 
     return (0, 0, 0)
 
+
+Dirs().mounts = []  # If you add the __init__, every time you do Dirs(),
+                    # the mounts Variable returns to []
