@@ -701,9 +701,10 @@ class LateralView(Gtk.ScrolledWindow):
         data['hbox'] = hbox
         row.data = data
 
+        button_close.connect('button-release-event', self.eject_mount, data)
+
         self.rows[path] = row
         self.paths[row] = path
-        #button_close.connect('button-release-event', self.button_release_event, data)
 
         self.view.add(row)
         row.show_all()
@@ -712,11 +713,24 @@ class LateralView(Gtk.ScrolledWindow):
             levelbar.hide()
             button_close.hide()
 
+    def unmount_done_cb(self):
+        pass
+
+    def eject_mount(self, button, event, data):
+        # FIXME: This generates core
+
+        if event.button != 1:
+            return
+
+        loop = GObject.MainLoop()
+        cancellable = Gio.Cancellable()
+        data['volume'].eject(0, cancellable, None, self.unmount_done_cb)
+
     def remove_mount(self, volume_monitor=None, device=None, path=None):
         if device and not path:
             gfile = device.get_default_location()
             path = gfile.get_path()
-            #self.dirs.remove_mount(path)
+            self.dirs.remove_mount(path)
 
         if not path:
             return
