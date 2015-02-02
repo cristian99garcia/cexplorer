@@ -379,11 +379,12 @@ def natural_sort(_list):
 
 
 def get_size_unity(num):
-    for unit in ['B','KB','MB','GB','TB','PB','EB','ZB']:
+    for unit in ['B', 'KB','MB','GB','TB','PB','EB','ZB']:
         if abs(num) < 1024.0:
             return "%3.1f%s" % (num, unit)
 
-        num /= 1024.0
+        if unit != 'B':
+            num /= 1024.0
 
 
 def get_size(paths):
@@ -481,7 +482,7 @@ def get_modified_time(path):
 
 
 def get_mount_space(path):
-    path = path.replace(' ', '\ ')
+    print path
     df = subprocess.Popen(["df"], stdout=subprocess.PIPE)
     output = df.communicate()[0]
 

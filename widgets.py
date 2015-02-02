@@ -285,7 +285,8 @@ class InfoBar(Gtk.InfoBar):
         self.set_show_close_button(True)
         self.set_message_type(Gtk.MessageType.ERROR)
 
-        self.connect('response', self.__response)
+        self.connect('response', self.__hide)
+        self.connect('realize', self.__hide)
 
         hbox = self.get_content_area()
         vbox = Gtk.VBox()
@@ -298,7 +299,7 @@ class InfoBar(Gtk.InfoBar):
         self.msg = Gtk.Label()
         vbox.pack_start(self.msg, False, False, 0)
 
-    def __response(self, widget, response):
+    def __hide(self, widget, response=None):
         self.hide()
 
     def set_msg(self, msg_type, info):
@@ -343,10 +344,12 @@ class LateralView(Gtk.ScrolledWindow):
         self.menu = None
         self.view = Gtk.ListBox()
         #   view structur:
-        #   GtkVBox:
-        #       GtkHBox: add property path
-        #           GtkImage, GtkLabel, GtkButton(For eject a mount)
-        #   GtkLevelBar(Show used space)
+        #   GtkListBox:
+        #       GtkListBoxRow: add property "data"
+        #           GtkImage, GtkVBox, GtkEventBox(For eject a mount)
+        #                         GtkHBox
+        #                             GtkLabel
+        #                         GtkLevelBar(Show used space)
 
         self.dirs = G.Dirs()
         self.folder = None
@@ -354,6 +357,7 @@ class LateralView(Gtk.ScrolledWindow):
 
         self.view.set_selection_mode(Gtk.SelectionMode.SINGLE)
 
+        self.connect('realize', self.__realize_cb)
         self.volume_monitor.connect('mount-added', self.add_mount)
         self.volume_monitor.connect('mount-removed', self.remove_mount)
 
@@ -368,19 +372,32 @@ class LateralView(Gtk.ScrolledWindow):
         self.view.connect('button-press-event', self.__button_press_event_cb)
         self.add(self.view)
 
-    def __selection_changed(self, listbox, row):
-        def mount_done_cb(obj, res, user_data):
-            from gi.repository import GLib
-            try:
-                obj.mount_finish(res)
+    def __realize_cb(self, widget):
+        for row in self.view.get_children():
+            if not hasattr(row, 'data'):
+                continue
 
-            except GLib.Error as e: # GLib.Error
-                print e
-                pass
+            data = row.data
+            if ('volume' in data and not data['volume'].get_mount()) or ('mounted' in data and not data['mounted']):
+                data['levelbar'].hide()
+                data['button-close'].hide()
 
-            self.folder = G.clear_path(obj.get_mount().get_root().get_path())
-            self.emit('item-selected', self.folder)
-            user_data.quit()
+            if 'umontable' in data and not data['umontable']:
+                data['button-close'].hide()
+
+    def mount_finish(self, obj, res, user_data):
+        from gi.repository import GLib
+        try:
+            obj.mount_finish(res)
+
+        except GLib.Error as e: # GLib.Error
+            print e
+            pass
+
+        print obj
+        self.folder = G.clear_path(obj.get_mount().get_root().get_path())
+        self.emit('item-selected', self.folder)
+        user_data.quit()
 
         if not row or G.clear_path(row.path) == self.folder:
             return
@@ -389,8 +406,7 @@ class LateralView(Gtk.ScrolledWindow):
             self._emit = True
             return
 
-        #print row.device_data
-
+    def __selection_changed(self, listbox, row):
         for path, _row in self.rows.items():
             if _row == row and path != 'None':
                 self.folder = G.clear_path(row.path)
@@ -405,7 +421,7 @@ class LateralView(Gtk.ScrolledWindow):
                 mount_operation.set_anonymous(True)
 
                 if device and not row.device_data['mounted']:
-                    device.mount(0, mount_operation, None, mount_done_cb, loop)
+                    device.mount(0, mount_operation, None, self.mount_finish, loop)
 
                 elif device and row.device_data['mounted']:
                     self.folder = G.clear_path(device.get_mount().get_root().get_path())
@@ -470,26 +486,18 @@ class LateralView(Gtk.ScrolledWindow):
                         'name': self.dirs['/'], 'device': None,
                         'pixbuf': self.dirs.get_pixbuf_symbolic('/')}
 
-                self.add_folder(device=data)
+                self.add_mount(data=data)
 
-    def add_folder(self, path=None, device=None):
+    def add_folder(self, path=None):
         if path and not path in self.dirs:
             self.remove_mount(path)
 
-        if device:
-            path = device['path']
-            name = device['name']
-            pixbuf = device['pixbuf']
-
-        else:
-            pixbuf = self.dirs.get_pixbuf_symbolic(path)
-            name = self.dirs[path]
-
+        pixbuf = self.dirs.get_pixbuf_symbolic(path)
+        name = self.dirs[path]
         image = Gtk.Image.new_from_pixbuf(pixbuf)
 
         row = Gtk.ListBoxRow()
         row.path = path
-        row.device_data = device
         vbox = Gtk.VBox()
         hbox = Gtk.HBox()
         label = Gtk.Label(name)
@@ -500,17 +508,6 @@ class LateralView(Gtk.ScrolledWindow):
         hbox.pack_start(image, False, False, 10)
         hbox.pack_start(label, False, False, 5)
         vbox.pack_start(hbox, False, False, 2)
-
-        if device and device['mounted']:
-            total_space, used_space, free_space = G.get_mount_space(path)
-
-            levelbar.set_min_value(0)
-            levelbar.set_max_value(total_space)
-            levelbar.set_value(used_space)
-            if device['umontable']:
-                hbox.pack_start(umount_button, False, False, 0)
-
-            vbox.pack_start(levelbar, False, False, 0)
 
         row.add(vbox)
         self.view.add(row)
@@ -535,31 +532,152 @@ class LateralView(Gtk.ScrolledWindow):
 
         self.view.select_row(self.rows[path])
 
-    def add_mount(self, volume_monitor, device):
-        device_data = {}
-        name = device.get_name()
+    def add_mount(self, volume_monitor=None, volume=None, data=None):
+        if data:
+            hbox = Gtk.HBox()
+            image = Gtk.Image.new_from_pixbuf(data['pixbuf'])
+            label = Gtk.Label(data['name'])
+            levelbar = Gtk.LevelBar()
+            image_close = Gtk.Image.new_from_icon_name('media-eject-symbolic', Gtk.IconSize.MENU)
+            button_close = Gtk.EventBox()
 
-        if hasattr(device, 'get_default_location'):
-            gfile = device.get_default_location()
-            path = gfile.get_path()
+            _hbox = Gtk.HBox()
+            _hbox.pack_start(label, False, False, 0)
 
-        else:
-            path = 'None'#os.path.join('/media/cristian', name)
+            if 'volume' in data:
+                mount = data['volume'].get_mount()
+                gfile = mount.get_root()
+                path = gfile.get_path()
 
-        mounted = bool(device.get_mount())
+            elif 'path' in data:
+                path = data['path']
 
-        icons = device.get_symbolic_icon().get_names()
+            total_space, used_space, free_space = G.get_mount_space(path)
+            levelbar.set_min_value(0)
+            levelbar.set_max_value(total_space)
+            levelbar.set_value(used_space)
+
+            vbox = Gtk.VBox()
+            vbox.pack_start(_hbox, False, False, 0)
+            vbox.pack_start(levelbar, False, False, 0)
+
+            button_close.add(image_close)
+            hbox.pack_start(image, False, False, 10)
+            hbox.pack_start(vbox, True, True, 10)
+            hbox.pack_end(button_close, False, False, 10)
+
+            row = Gtk.ListBoxRow()
+            row.data = data
+            row.data['hbox'] = hbox
+            row.data['row'] = row
+            row.data['total-space'] = total_space
+            row.data['used-space'] = used_space
+            row.data['levelbar'] = levelbar
+            row.data['button-close'] = button_close
+
+            row.add(hbox)
+            self.view.add(row)
+            row.show_all()
+
+            if ('volume' in data and not data['volume'].get_mount()) or ('mounted' in data and not data['mounted']):
+                levelbar.hide()
+                button_close.hide()
+
+            if 'umontable' in data and not data['umontable']:
+                button_close.hide()
+
+            return
+
+        path = None
+        icons = volume.get_symbolic_icon().get_names()
         icon_theme = Gtk.IconTheme()
-        pixbuf = icon_theme.choose_icon(icons, G.DEFAULT_ITEM_ICON_SIZE, 0).load_icon()
-        device_data['path'] = path
-        device_data['name'] = name
-        device_data['pixbuf'] = pixbuf
-        device_data['device'] = device
-        device_data['mounted'] = mounted
-        device_data['umontable'] = True
-        self.dirs[G.clear_path(path)] = name
-        self.add_folder(device=device_data)
-        self.show_all()
+        pixbuf = icon_theme.choose_icon(icons, 16, 0).load_icon()
+        name = volume.get_name()
+        total_space, used_space = 0, 0
+
+        for _row in self.view.get_children():
+            if not hasattr(_row, 'data'):
+                continue
+
+            if _row.data['name'] == name:
+                mounted = bool(volume.get_mount())
+                mount = volume.get_mount()
+                _row.data['mount'] = mount
+
+                if not mount:
+                    _row.data['levelbar'].hide()
+                    _row.data['button-close'].hide()
+                    return
+
+                gfile = mount.get_root()
+                path = gfile.get_path()
+                total_space, used_space = get_mount_space(path)
+
+                _row.data['levelbar'].set_min_value(0)
+                _row.data['levelbar'].set_max_value(total_space)
+                _row.data['levelbar'].set_value(used_space)
+
+                _row.data['levelbar'].show()
+                _row.data['button-close'].show()
+                return
+
+        image = Gtk.Image.new_from_pixbuf(pixbuf)
+        label = Gtk.Label(name)
+
+        button_close = Gtk.EventBox()
+        image_close = Gtk.Image.new_from_icon_name('media-eject-symbolic', Gtk.IconSize.MENU)
+        button_close.set_can_focus(True)
+        button_close.add(image_close)
+
+        levelbar = Gtk.LevelBar()
+
+        _hbox = Gtk.HBox()
+        _hbox.pack_start(label, False, False, 0)
+        vbox = Gtk.VBox()
+        vbox.pack_start(_hbox, False, False, 0)
+
+        hbox = Gtk.HBox()
+        hbox.pack_start(image, False, False, 10)
+        hbox.pack_start(vbox, True, True, 10)
+
+        if bool(volume.get_mount()):
+            mount = volume.get_mount()
+            gfile = mount.get_root()
+            path = gfile.get_path()
+            total_space, used_space = get_mount_space(path)
+
+            levelbar.set_min_value(0)
+            levelbar.set_max_value(total_space)
+            levelbar.set_value(used_space)
+
+        vbox.pack_start(levelbar, True, True, 0)
+        hbox.pack_start(button_close, False, False, 10)
+
+        row = Gtk.ListBoxRow()
+        row.add(hbox)
+
+        data = {}
+        data['row'] = row
+        data['total-space'] = total_space
+        data['used-space'] = used_space
+        data['name'] = name
+        data['volume'] = volume
+        data['mount'] = volume.get_mount()
+        data['mounted'] = bool(volume.get_mount())
+        data['path'] = path
+        data['levelbar'] = levelbar
+        data['button-close'] = button_close
+        data['hbox'] = hbox
+        row.data = data
+
+        #button_close.connect('button-release-event', self.button_release_event, data)
+
+        self.view.add(row)
+        row.show_all()
+
+        if not bool(volume.get_mount()):
+            levelbar.hide()
+            button_close.hide()
 
     def remove_mount(self, volume_monitor=None, device=None, path=None):
         if device and not path:
@@ -710,10 +828,14 @@ class PlaceBox(Gtk.HBox):
         button_close.connect('clicked', self.__close)
         self.hbox.pack_end(button_close, False, False, 0)
 
+        self.connect('realize', self.__realize_cb)
         self.set_folder(G.HOME_DIR)
 
         self.vbox.add(self.hbox)
         self.add(self.vbox)
+
+    def __realize_cb(self, widget):
+        self.entry.hide()
 
     def change_mode(self):
         self.show_buttons = not self.show_buttons

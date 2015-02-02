@@ -93,7 +93,6 @@ class CExplorer(Gtk.Window):
 
         self.add(self.vbox)
         self.show_all()
-        self.infobar.hide()
 
     def __realize_cb(self, *args):
         self.place_box.change_mode()
