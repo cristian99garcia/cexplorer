@@ -1114,7 +1114,7 @@ class StatusBar(Gtk.HBox):
         elif len(selected) == 1:
             label += selected[0]
 
-        label += G.get_size(selected)
+        label += ' ' + G.get_size(selected)
         self.label.set_label(label)
 
     def __value_changed(self, widget):

@@ -401,9 +401,13 @@ def natural_sort(_list):
     return sorted(_list, key=alphanum_key)
 
 
-def get_size_unity(num):
-    for unit in ['B', 'KB','MB','GB','TB','PB','EB','ZB']:
+def get_size_unit(num):
+    min_unit = 'B'
+    units = ['KB','MB','GB','TB','PB','EB','ZB', None]
+    for unit in units:
         if abs(num) < 1024.0:
+            idx = units.index(unit)
+            unit = units[(idx - 1)] if idx > 0 else min_unit
             return "%3.1f%s" % (num, unit)
 
         if unit != 'B':
@@ -445,11 +449,11 @@ def get_size(paths):
             string = '%s %s %d %s ' % (Dirs()[folders[0]], _('contains'), quantity, _('items, and'))
 
         if len(files) > 1:
-            size_str = get_size_unity(size)
+            size_str = get_size_unit(size)
             string += '%d %s %s' % (len(files), 'files selecteds, weight', size, size_str)
 
         else:
-            size_str = get_size_unity(size)
+            size_str = get_size_unit(size)
             string += '%s %s %s' % (Dirs()[files[0]], _('weight'), size_str)
 
         string = string.replace('0 items', 'any items')
@@ -466,7 +470,7 @@ def get_size(paths):
         return string.replace('1 items', 'a item')
 
     elif not len(folders) and len(files):
-        size_str = get_size_unity(size)
+        size_str = get_size_unit(size)
         if len(files) > 1:
             string = '%d %s %s' % (len(files), _('files selected, weight'), size_str)
             return string.replace('1 files', 'A file')
