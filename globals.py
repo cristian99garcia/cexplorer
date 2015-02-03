@@ -85,10 +85,21 @@ SYSTEM_NAME = _('Equipment')
 
 KEYS = {65288: 'Backspace',
         65293: 'Enter',
-        65507: 'Ctrl'}
+        65507: 'Ctrl',
+        65513: 'Alt',
+        65505: 'Mayus',
+        65307: 'Scape',
+        65361: 'Left',
+        65362: 'Up',
+        65363: 'Right',
+        65364: 'Down'}
+
+SPECIAL_KEYS = [KEYS[x] for x in KEYS.keys()]
 
 for x in range(65, 91) + range(97, 123):
     KEYS[x] = chr(x)
+
+print SPECIAL_KEYS
 
 
 class Dirs(object):

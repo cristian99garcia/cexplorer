@@ -29,6 +29,7 @@ from widgets import InfoBar
 from widgets import Notebook
 from widgets import PlaceBox
 from widgets import StatusBar
+from widgets import SearchEntry
 from widgets import LateralView
 from widgets import PropertiesWindow
 
@@ -86,8 +87,12 @@ class CExplorer(Gtk.Window):
         self.statusbar.connect('icon-size-changed', self.__icon_size_changed)
         self.vbox.pack_start(self.statusbar, False, False, 2)
 
-        self.connect('realize', self.__realize_cb)
+        self.search_entry = SearchEntry()
+        self.search_entry.connect('search-changed', self.search_item)
+        self.search_entry.connect('select', self.__open_selected_items)
+
         self.connect('destroy', self._exit)
+        self.connect('realize', self.__realize_cb)
         self.connect('key-press-event', self.__key_press_event_cb)
         self.connect('key-release-event', self.__key_release_event_cb)
 
@@ -146,6 +151,22 @@ class CExplorer(Gtk.Window):
 
     def __switch_page(self, notebook, view, page):
         GObject.idle_add(self.update_widgets, view=view)
+
+    def __open_selected_items(self, widget):
+        view = self.get_actual_view()
+        paths = []
+
+        if widget == self.search_entry:
+            self.shortcut = ''
+            self.pressed_keys = []
+
+        for _path in view.view.get_selected_items():
+            item = view.model.get_iter(_path)
+            name = view.model.get_value(item, 0)
+            path = os.path.join(view.folder, name)
+            paths.append(path)
+
+        self.__item_selected(None, paths)
 
     def __remove_page_from_notebook(self, notebook, view):
         idx = self.notebook.get_children().index(view)
@@ -207,6 +228,50 @@ class CExplorer(Gtk.Window):
 
         elif self.shortcut == 'Ctrl+-':
             print 'Disminuit'
+
+        self.search_text()
+
+    def search_text(self):
+        text = self.shortcut
+        for x in G.SPECIAL_KEYS:
+            if text.startswith(x):
+                if x == 'Mayus' and text != 'Mayus':
+                    text = text[len('Mayus+'):]
+                    continue
+
+                return
+
+        if self.place_box.entry.is_focus():
+            return
+
+        view = self.get_actual_view()
+        allocation = view.get_allocation()
+        x, y = self.get_position()
+        x += allocation.width
+        y += allocation.height
+        self.search_entry.set_pos(x, y)
+        self.search_entry._show(self.shortcut)
+        self.shortcut = ''
+        self.pressed_keys = []
+
+    def search_item(self, window, text):
+        tildes = {'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u'}
+        text = text.lower()
+        view = self.get_actual_view()
+        view.view.unselect_all()
+
+        for tilde in tildes:
+            text = text.replace(tilde, tildes[tilde])
+
+        for item in view.model:
+            label = list(item)[0].lower()
+
+            for tilde in tildes:
+                label = label.replace(tilde, tildes[tilde])
+
+            if label.lower().startswith(text.lower()):
+                view.view.select_path(item.path)
+                break
 
     def remove_page(self, idx=None, view=None, close=False):
         if not view:

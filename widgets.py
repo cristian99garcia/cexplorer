@@ -29,6 +29,92 @@ from gi.repository import GObject
 from gi.repository import GdkPixbuf
 
 
+class SearchEntry(Gtk.Window):
+
+    __gsignals__ = {
+        'search-changed': (GObject.SIGNAL_RUN_FIRST, None, [str]),
+        'select': (GObject.SIGNAL_RUN_FIRST, None, []),
+        }
+
+    def __init__(self):
+        Gtk.Window.__init__(self)
+
+        self.width = 200
+        self.height = -1
+        self.timeout = None
+        self.entry = Gtk.SearchEntry()
+
+        self.resize(self.width, self.height)
+        self.entry.set_size_request(self.width, self.height)
+
+        self.connect('hide', self.__hide_cb)
+        self.connect('show', self.__show_cb)
+        self.connect('realize', self.__realize_cb)
+        self.connect('destroy-event', self.__destroy_event_cb)
+        self.entry.connect('changed', self.__text_changed_cb)
+        self.entry.connect('focus-out-event', self.__focus_out_event_cb)
+        self.entry.connect('key-press-event', self.__key_press_event_cb)
+
+        self.add(self.entry)
+        self.show_all()
+
+    def __hide_cb(self, window):
+        if self.timeout:
+            GObject.source_remove(self.timeout)
+            self.timeout = None
+
+    def __show_cb(self, window):
+        self.reset_timeout()
+
+    def __realize_cb(self, window):
+        self.hide()
+        self.get_window().set_decorations(False)
+        self.get_window().process_all_updates()
+
+    def __destroy_event_cb(self, window, event):
+        self.hide()
+        return False
+
+    def __text_changed_cb(self, entry):
+        if self.entry.get_text():
+            self.reset_timeout()
+            self.emit('search-changed', self.entry.get_text())
+
+    def __focus_out_event_cb(self, widget, event):
+        self.hide()
+
+    def __key_press_event_cb(self, widget, event):
+        if not event.keyval in G.KEYS:
+            return
+
+        key = G.KEYS[int(event.keyval)]
+        if key == 'Scape':
+            self.hide()
+
+        elif key == 'Enter':
+            self.hide()
+            self.emit('select')
+
+    def set_pos(self, x, y):
+        allocation = self.entry.get_allocation()
+        #x += allocation.width
+        #x += 10
+        y += allocation.height
+        self.move(x, y)
+
+    def _show(self, text):
+        #self.entry.set_selection(-1, -1)
+        self.show_all()
+        self.entry.set_text(text)
+        self.entry.set_position(-1)
+
+    def reset_timeout(self):
+        if self.timeout:
+            GObject.source_remove(self.timeout)
+
+        self.timeout = GObject.timeout_add(5000, self.hide)
+
+
 class View(Gtk.ScrolledWindow):
 
     __gsignals__ = {
