@@ -922,29 +922,30 @@ class PlaceBox(Gtk.HBox):
         self.hbox.set_margin_right(10)
         self.hbox.set_margin_left(10)
 
-        Gtk.StyleContext.add_class(
-            self.get_style_context(), 'linked')
+        hbox = Gtk.HBox()
+        Gtk.StyleContext.add_class(hbox.get_style_context(), 'linked')
+        self.hbox.pack_start(hbox, False, False, 0)
 
         self.button_left = Gtk.Button()
         arrow = Gtk.Arrow(Gtk.ArrowType.LEFT, Gtk.ShadowType.NONE)
         arrow.set_size_request(28, 28)
         self.button_left.connect('clicked', self.__go, 'go-back')
         self.button_left.add(arrow)
-        self.hbox.pack_start(self.button_left, False, False, 0)
+        hbox.pack_start(self.button_left, False, False, 0)
 
         self.button_right = Gtk.Button()
         arrow = Gtk.Arrow(Gtk.ArrowType.RIGHT, Gtk.ShadowType.NONE)
         arrow.set_size_request(28, 28)
         self.button_right.connect('clicked', self.__go, 'go-forward')
         self.button_right.add(arrow)
-        self.hbox.pack_start(self.button_right, False, False, 0)
+        hbox.pack_start(self.button_right, False, False, 0)
 
         self.button_up = Gtk.Button()
         arrow = Gtk.Arrow(Gtk.ArrowType.UP, Gtk.ShadowType.NONE)
         arrow.set_size_request(28, 28)
         self.button_up.connect('clicked', self.__go, 'go-up')
         self.button_up.add(arrow)
-        self.hbox.pack_start(self.button_up, False, False, 0)
+        hbox.pack_start(self.button_up, False, False, 0)
 
         self.buttonbox = Gtk.HBox()
         Gtk.StyleContext.add_class(self.buttonbox.get_style_context(), 'linked')
