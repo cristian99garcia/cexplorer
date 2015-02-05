@@ -335,7 +335,10 @@ def get_pixbuf_from_path(path, size=None):
         types.insert(0, 'drive-harddisk')
 
     if 'image-x-generic' in types:
-        return GdkPixbuf.Pixbuf.new_from_file_at_size(path, size, size)
+        try:
+            return GdkPixbuf.Pixbuf.new_from_file_at_size(path, size, size)
+        except GLib.Error:
+            pass
 
     if path.endswith('.desktop'):
         cfg = ConfigParser.ConfigParser()
