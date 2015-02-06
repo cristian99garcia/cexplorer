@@ -92,7 +92,9 @@ KEYS = {65288: 'Backspace',
         65361: 'Left',
         65362: 'Up',
         65363: 'Right',
-        65364: 'Down'}
+        65364: 'Down',
+        43: '+',
+        45: '-'}
 
 SPECIAL_KEYS = [KEYS[x] for x in KEYS.keys()]
 

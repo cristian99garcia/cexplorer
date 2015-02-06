@@ -227,12 +227,13 @@ class CExplorer(Gtk.Window):
             print 'New window'
 
         elif self.shortcut == 'Ctrl++':
-            print 'Aument'
+            self.statusbar.aument()
 
         elif self.shortcut == 'Ctrl+-':
-            print 'Disminuit'
+            self.statusbar.disminuit()
 
-        self.search_text()
+        else:
+            self.search_text()
 
     def search_text(self):
         text = self.shortcut

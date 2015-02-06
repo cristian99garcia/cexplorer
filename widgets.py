@@ -1125,6 +1125,22 @@ class StatusBar(Gtk.HBox):
             self.icon_size = value
             self.emit('icon-size-changed', value * 16)
 
+    def aument(self):
+        value = self.scale.get_value()
+        value += 1
+        if value > 8:
+            value = 8
+
+        self.scale.set_value(value)
+
+    def disminuit(self):
+        value = self.scale.get_value()
+        value -= 1
+        if value < 1:
+            value = 1
+
+        self.scale.set_value(value)
+
 
 class PropertiesWindow(Gtk.Dialog):
 
