@@ -1083,6 +1083,7 @@ class StatusBar(Gtk.HBox):
         self.set_margin_left(10)
 
         self.label = Gtk.Label(G.HOME_DIR)
+        self.label.set_selectable(True)
         self.label.modify_font(Pango.FontDescription('12'))
         self.label.set_ellipsize(Pango.EllipsizeMode.END)
         self.pack_start(self.label, False, False, 0)

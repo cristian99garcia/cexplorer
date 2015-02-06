@@ -204,7 +204,6 @@ class CExplorer(Gtk.Window):
         os.rename(old_path, new_path)
 
     def check_shortcut(self):
-        #  FIXME: agregar funcionalidad para buscar archivos
         if self.shortcut  == 'Ctrl+l':
             self.place_box.change_mode()
 
@@ -216,6 +215,10 @@ class CExplorer(Gtk.Window):
 
         elif self.shortcut == 'Ctrl+h':
             self.scan_folder.set_show_hidden_files(not self.scan_folder.show_hidden_files)
+
+        elif self.shortcut == 'Ctrl+a':
+            view = self.get_actual_view()
+            view.view.select_all()
 
         elif self.shortcut == 'Ctrl+f':
             print 'Search files'

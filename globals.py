@@ -444,17 +444,19 @@ def get_size(paths):
 
     if len(folders) and len(files):
         if len(folders) > 1:
-            string = '%d %s %d %s' & (len(folders), _('folders selecteds, contains'), quantity, _('items'))
+            string = '%d %s %d %s' % (len(folders), _('folders selecteds, contains'), quantity, _('items'))
 
         else:
             string = '%s %s %d %s' % (Dirs()[folders[0]], _('selected, contains'), quantity, _('items'))
 
         if len(files) > 1:
             size_str = get_size_unit(size)
+            string += ' ' if string else ''
             string += '%d %s %s' % (len(files), 'files selecteds, weight', size, size_str)
 
         else:
             size_str = get_size_unit(size)
+            string += (', %s ' % _('and')) if string else ''
             string += '%s %s %s' % (Dirs()[files[0]], _('weight'), size_str)
 
     elif len(folders) and not len(files):
