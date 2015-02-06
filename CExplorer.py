@@ -74,6 +74,7 @@ class CExplorer(Gtk.Window):
 
         self.lateral_view = LateralView()
         self.lateral_view.connect('item-selected', self.__item_selected)
+        self.lateral_view.connect('item-selected', self.__update_statusbar)
         self.lateral_view.connect('new-page', lambda l, p: self.new_page(p))
         self.lateral_view.connect('show-properties',
             lambda l, p: self.show_properties_for_paths(None, [p]))
@@ -177,8 +178,12 @@ class CExplorer(Gtk.Window):
         for view in self.notebook.get_children():
             GObject.idle_add(view.set_icon_size, value)
 
-    def __update_statusbar(self, view, selection):
-        self.statusbar.update_label(view.folder, selection, view.model)
+    def __update_statusbar(self, view=None, selection=[]):
+        if isinstance(view, View):
+            self.statusbar.update_label(view.folder, selection, view.model)
+
+        else:
+            self.statusbar.label.set_label(self.folder)
 
     def __try_rename(self, widget, old_path, new_name):
         readable, writable = G.get_access(old_path)
