@@ -444,10 +444,10 @@ def get_size(paths):
 
     if len(folders) and len(files):
         if len(folders) > 1:
-            string = '%d %s %d %s ' % (len(folders), _('folders selecteds, contains'), quantity, _('items, and'))
+            string = '%d %s %d %s' & (len(folders), _('folders selecteds, contains'), quantity, _('items'))
 
         else:
-            string = '%s %s %d %s ' % (Dirs()[folders[0]], _('contains'), quantity, _('items, and'))
+            string = '%s %s %d %s' % (Dirs()[folders[0]], _('selected, contains'), quantity, _('items'))
 
         if len(files) > 1:
             size_str = get_size_unit(size)
@@ -457,18 +457,12 @@ def get_size(paths):
             size_str = get_size_unit(size)
             string += '%s %s %s' % (Dirs()[files[0]], _('weight'), size_str)
 
-        string = string.replace('0 items', 'any items')
-        return string.replace('1 items', 'a item')
-
     elif len(folders) and not len(files):
         if len(folders) > 1:
             string = '%d %s %d %s' % (len(folders),  _('folders selected, contains'), quantity, _('items'))
 
         else:
-            string = '%s %d %s' % (_('Contains'), quantity, _('items'))
-
-        string = string.replace('0 items', 'any items')
-        return string.replace('1 items', 'a item')
+            string = '%s %d %s' % (_('contains'), quantity, _('items'))
 
     elif not len(folders) and len(files):
         size_str = get_size_unit(size)
@@ -479,7 +473,9 @@ def get_size(paths):
         else:
             return size_str
 
-    return ''
+    string = string.replace(_(' 0 items'), _(' any items'))
+    string = string.replace(_(' 1 items'), _(' a item'))
+    return string
 
 
 def get_type(path):

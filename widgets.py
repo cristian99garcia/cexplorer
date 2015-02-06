@@ -1170,7 +1170,7 @@ class PropertiesWindow(Gtk.Dialog):
         self.grid_info.set_column_spacing(10)
         self.stack.add_titled(self.grid_info, 'general', _('General'))
 
-        self.make_info(_('Size:'), G.get_size(paths))
+        self.make_info(_('Size:'), G.get_size(paths).capitalize())
         if len(paths) == 1:
             self.make_info(_('Mime type:'), G.get_type(paths[0]))
             self.make_info(_('Created:'), G.get_created_time(paths[0]))
