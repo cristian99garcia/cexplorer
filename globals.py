@@ -99,8 +99,6 @@ SPECIAL_KEYS = [KEYS[x] for x in KEYS.keys()]
 for x in range(65, 91) + range(97, 123):
     KEYS[x] = chr(x)
 
-print SPECIAL_KEYS
-
 
 class Dirs(object):
     """

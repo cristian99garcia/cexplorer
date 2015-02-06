@@ -1153,13 +1153,14 @@ class PropertiesWindow(Gtk.Dialog):
 
         self.entry.connect('activate', self.__rename_file)
         if len(paths) == 1:
-            hbox.pack_start(self.entry, False, True, 10)
+            hbox.pack_start(self.entry, True, True, 10)
 
-        self.label = Gtk.Label('%d elements\nselecteds' % len(paths))
+        self.label = Gtk.Label('%d elements selecteds' % len(paths))
+        self.label.set_ellipsize(Pango.EllipsizeMode.END)
         self.label.modify_font(Pango.FontDescription('20'))
 
         if len(paths) > 1:
-            hbox.pack_start(self.label, False, True, 10)
+            hbox.pack_start(self.label, True, True, 10)
 
         self.stack = Gtk.Stack()
         self.stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
@@ -1189,9 +1190,9 @@ class PropertiesWindow(Gtk.Dialog):
             button.set_show_dialog_item(True)
             self.grid_info.attach(button, 1, self.info_number, 1, 1)
 
-        grid_permissions = Gtk.Grid()
-        grid_permissions.set_row_homogeneous(True)
-        self.stack.add_titled(grid_permissions, 'permissions', _('Permissions'))
+        self.vbox_permissions = Gtk.VBox()
+        self.make_permissions()
+        self.stack.add_titled(self.vbox_permissions, 'permissions', _('Permissions'))
 
         self.stack_switcher = Gtk.StackSwitcher()
         self.stack_switcher.set_stack(self.stack)
@@ -1200,13 +1201,12 @@ class PropertiesWindow(Gtk.Dialog):
         self.vbox.pack_start(self.stack_switcher, True, True, 10)
         self.vbox.pack_start(self.stack, True, True, 0)
 
-        self.set_resizable(False)
         self.set_title(_('Properties'))
         self.vbox.set_margin_left(20)
         self.vbox.set_margin_right(20)
 
         self.grid_info.show_all()
-        grid_permissions.show_all()
+        self.vbox_permissions.show_all()
         self.show_all()
 
     def make_info(self, title, info):
@@ -1219,9 +1219,44 @@ class PropertiesWindow(Gtk.Dialog):
         label_info = Gtk.Label(info)
         label_info.set_selectable(True)
         label_info.set_justify(Gtk.Justification.FILL)
+        label_info.set_ellipsize(Pango.EllipsizeMode.END)
         self.grid_info.attach(label_info, 1, self.info_number, 1, 1)
 
         self.info_number += 1
+
+    def make_permissions(self):
+        hbox = Gtk.HBox()
+        self.vbox_permissions.add(hbox)
+
+        button1 = Gtk.Button('read')
+        button2 = Gtk.Button('write')
+        button3 = Gtk.Button('execute')
+
+        hbox.add(button1)
+        hbox.add(button2)
+        hbox.add(button3)
+
+        hbox = Gtk.HBox()
+        self.vbox_permissions.add(hbox)
+
+        button1 = Gtk.Button('read')
+        button2 = Gtk.Button('write')
+        button3 = Gtk.Button('execute')
+
+        hbox.add(button1)
+        hbox.add(button2)
+        hbox.add(button3)
+
+        hbox = Gtk.HBox()
+        self.vbox_permissions.add(hbox)
+
+        button1 = Gtk.Button('read')
+        button2 = Gtk.Button('write')
+        button3 = Gtk.Button('execute')
+
+        hbox.add(button1)
+        hbox.add(button2)
+        hbox.add(button3)
 
     def __rename_file(self, entry):
         self.emit('rename-file', self.old_path, entry.get_text())
