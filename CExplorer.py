@@ -24,8 +24,9 @@ from gi.repository import Gtk
 from gi.repository import Gdk
 from gi.repository import GObject
 
-from widgets import View
 from widgets import InfoBar
+from widgets import IconView
+from widgets import ListView
 from widgets import Notebook
 from widgets import PlaceBox
 from widgets import StatusBar
@@ -65,11 +66,13 @@ class CExplorer(Gtk.Window):
         self.notebook.connect('switch-page', self.__switch_page)
         self.notebook.connect('new-page', lambda w, p: self.new_page(p))
         self.notebook.connect('remove-page', self.__remove_page_from_notebook)
+        self.notebook.connect('reconnect-all-views', self.__reconnect_all_views)
         self.paned.pack2(self.notebook, True)
 
         self.place_box = PlaceBox()
         self.place_box.connect('go-up', self.go_up)
         self.place_box.connect('change-directory', self.__item_selected)
+        self.place_box.connect('change-view-mode', self.__change_view_mode)
         self.set_titlebar(self.place_box)
 
         self.lateral_view = LateralView()
@@ -150,6 +153,10 @@ class CExplorer(Gtk.Window):
             if os.path.isdir(paths[0]):
                 self.new_page(path)
 
+    def __change_view_mode(self, place_box, mode):
+        self.mode = mode
+        self.notebook.set_view_mode(mode)
+
     def __switch_page(self, notebook, view, page):
         GObject.idle_add(self.update_widgets, view=view)
 
@@ -173,14 +180,25 @@ class CExplorer(Gtk.Window):
         idx = self.notebook.get_children().index(view)
         self.remove_page(idx)
 
+    def __reconnect_all_views(self, notebook):
+        for view in self.notebook.get_children():
+            view.icon_size = self.icon_size
+            view.connect('selection-changed', self.__update_statusbar)
+            view.connect('item-selected', self.__item_selected)
+            view.connect('item-selected', lambda *args: self.notebook.update_tab_labels())
+            view.connect('new-page', lambda x, p: self.new_page(p))
+            view.connect('show-properties', self.show_properties_for_paths)
+            view.connect('copy', self.copy)
+            view.connect('paste', self.paste)
+
     def __icon_size_changed(self, widget, value):
         self.icon_size = value
         for view in self.notebook.get_children():
             GObject.idle_add(view.set_icon_size, value)
 
-    def __update_statusbar(self, view=None, selection=[]):
-        if isinstance(view, View):
-            self.statusbar.update_label(view.folder, selection, view.model)
+    def __update_statusbar(self, view=None, selected=[]):
+        if selected:
+            self.statusbar.update_label(selected, self.folder)
 
         else:
             self.statusbar.label.set_label(self.folder)

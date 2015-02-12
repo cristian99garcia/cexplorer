@@ -115,7 +115,7 @@ class SearchEntry(Gtk.Window):
         self.timeout = GObject.timeout_add(5000, self.hide)
 
 
-class View(Gtk.ScrolledWindow):
+class IconView(Gtk.ScrolledWindow):
 
     __gsignals__ = {
         'item-selected': (GObject.SIGNAL_RUN_FIRST, None, [object]),
@@ -143,8 +143,8 @@ class View(Gtk.ScrolledWindow):
         self.reverse = False
 
         self.view.set_text_column(0)
-        self.view.set_can_focus(True)
         self.view.set_pixbuf_column(1)
+        self.view.set_can_focus(True)
         self.view.set_model(self.model)
         self.view.set_selection_mode(Gtk.SelectionMode.MULTIPLE)
 
@@ -154,7 +154,18 @@ class View(Gtk.ScrolledWindow):
         self.add(self.view)
 
     def __selection_changed(self, view):
-        self.emit('selection-changed', view.get_selected_items())
+        selected = []
+        for path in self.view.get_selected_items():
+            treeiter = self.model.get_iter(path)
+            name = self.model.get_value(treeiter, 0)
+            directory = os.path.join(self.folder, name)
+
+            if name == G.HOME_NAME:
+                directory = G.HOME_DIR
+
+            selected.append(G.clear_path(directory))
+
+        self.emit('selection-changed', selected)
 
     def __button_press_event_cb(self, view, event):
         path = view.get_path_at_pos(int(event.x), int(event.y))
@@ -278,7 +289,6 @@ class View(Gtk.ScrolledWindow):
 
     def __open_from_menu(self, item, new_page=False):
         paths = self.get_paths()
-        pahts = self.get_paths()
 
         if new_page:
             for path in paths:
@@ -322,9 +332,10 @@ class View(Gtk.ScrolledWindow):
         self.emit('paste', self.folder)
 
     def set_icon_size(self, icon_size):
-        GObject.idle_add(self.model.clear)
-        self.icon_size = icon_size
-        GObject.idle_add(self.__show_icons)
+        if icon_size != self.icon_size:
+            GObject.idle_add(self.model.clear)
+            self.icon_size = icon_size
+            GObject.idle_add(self.__show_icons)
 
     def get_path_from_treeiter(self, treeiter):
         name = self.model.get_value(treeiter, 0)
@@ -361,6 +372,231 @@ class View(Gtk.ScrolledWindow):
             name = self.dirs[path]
             pixbuf = G.get_pixbuf_from_path(path, self.icon_size)
             self.model.append([name, pixbuf])
+
+
+class ListView(Gtk.ScrolledWindow):
+
+    __gsignals__ = {
+        'item-selected': (GObject.SIGNAL_RUN_FIRST, None, [object]),
+        'new-page': (GObject.SIGNAL_RUN_FIRST, None, [object]),
+        'selection-changed': (GObject.SIGNAL_RUN_FIRST, None, [object]),
+        'show-properties': (GObject.SIGNAL_RUN_FIRST, None, [object]),
+        'cut': (GObject.SIGNAL_RUN_FIRST, None, [object]),
+        'copy': (GObject.SIGNAL_RUN_FIRST, None, [object]),
+        'paste': (GObject.SIGNAL_RUN_FIRST, None, [str]),
+        }
+
+    def __init__(self, folder):
+        Gtk.ScrolledWindow.__init__(self)
+
+        self.history = []
+        self.folders = []
+        self.files = []
+        self.folder = folder
+        self.icon_size = 10
+        self.dirs = G.Dirs()
+        self.view = Gtk.ListBox()
+        self.menu = None
+        self.sort = G.SORT_BY_NAME
+        self.reverse = False
+
+        self.view.set_can_focus(True)
+        self.view.set_selection_mode(Gtk.SelectionMode.MULTIPLE)
+
+        self.view.connect('button-press-event', self.__button_press_event_cb)
+        self.view.connect('row-selected', self.selection_changed)
+
+        self.add(self.view)
+
+    def __clear(self):
+        while self.view.get_children():
+            self.view.remove(self.view.get_children()[0])
+
+    def show_icons(self, paths):
+        GObject.idle_add(self.__clear)
+
+        del self.folders
+        del self.files
+
+        self.folders = []
+        self.files = []
+
+        for path in paths:
+            if os.path.isdir(path):
+                self.folders.append(path)
+
+            elif os.path.isfile(path):
+                self.files.append(path)
+
+        GObject.idle_add(self.__show_icons)
+
+    def __show_icons(self):
+        for path in self.folders + self.files:
+            name = self.dirs[path]
+            pixbuf = G.get_pixbuf_from_path(path, self.icon_size)
+
+            hbox = Gtk.HBox()
+            image = Gtk.Image.new_from_pixbuf(pixbuf)
+            hbox.pack_start(image, False, False, 10)
+
+            label = Gtk.Label(self.dirs[path])
+            label.modify_font(Pango.FontDescription('%d' % (self.icon_size / 2.0)))
+            hbox.pack_start(label, False, False, 0)
+
+            row = Gtk.ListBoxRow()
+            row.add(hbox)
+            self.view.add(row)
+
+        self.show_all()
+
+    def __open_from_menu(self, item, new_page=False):
+        row = self.view.get_selected_row()
+        paths = [self.get_path_from_row(row)] if row else []
+
+        if new_page:
+            for path in paths:
+                self.emit('new-page', path)
+
+        elif not new_page:
+            self.emit('item-selected', paths)
+
+    def get_path_from_row(self, row, _return=None):
+        if not row:
+            return _return
+
+        name = row.get_children()[0].get_children()[1].get_label()
+        if name == G.HOME_NAME:
+            return G.HOME_DIR
+
+        return os.path.join(self.folder, name)
+
+    def cut(self, *args):
+        print args
+
+    def copy(self, *args):
+        print args
+
+    def paste(self, *args):
+        print args
+
+    def set_icon_size(self, icon_size):
+        if icon_size != self.icon_size:
+            GObject.idle_add(self.__clear)
+            self.icon_size = icon_size
+            GObject.idle_add(self.__show_icons)
+
+    def selection_changed(self, listbox, row):
+        self.emit('selection-changed', [self.get_path_from_row(row, '')])
+
+    def __button_press_event_cb(self, view, event):
+        row = self.view.get_selected_row()
+        path = self.get_path_from_row(row, None)
+
+        if event.button == 1 and event.type.value_name == 'GDK_2BUTTON_PRESS' and path:
+            self.emit('item-selected', path)
+
+        elif event.button == 2 and path:
+            self.emit('new-page', path)
+
+        elif event.button == 3:
+            row =  self.view.get_row_at_y(event.y)
+
+            self.view.select_row(row)
+            self.make_menu([self.get_path_from_row(row)] if row else [])
+            self.menu.popup(None, None, None, None, event.button, event.time)
+            return True
+
+    def make_menu(self, paths):
+        all_are_dirs = True
+        if paths:
+            readable, writable = G.get_access(paths[0])
+            for x in paths[1:]:
+                _r, _w = G.get_access(x)
+                readable = readable and _r
+                writable = writable and _w
+
+        else:
+            readable, writable = G.get_access(self.folder)
+
+        for x in paths:
+            if not os.path.isdir(x):
+                all_are_dirs = False
+                break
+
+        self.menu = Gtk.Menu()
+
+        if paths and (paths[0] != self.folder or len(paths) > 1):
+            item = Gtk.MenuItem(_('Open'))
+            item.set_sensitive(readable)
+            item.connect('activate', self.__open_from_menu)
+            self.menu.append(item)
+
+            if all_are_dirs:
+                item = Gtk.MenuItem(_('Open in new tab'))
+                item.set_sensitive(readable)
+                item.connect('activate', self.__open_from_menu, True)
+                self.menu.append(item)
+
+            self.menu.append(Gtk.SeparatorMenuItem())
+
+        item = Gtk.MenuItem(_('Create a folder'))
+        item.set_sensitive(writable)
+        self.menu.append(item)
+
+        self.menu.append(Gtk.SeparatorMenuItem())
+
+        item = Gtk.MenuItem(_('Cut'))  # Copy path to clipboard
+        item.set_sensitive(writable)
+        item.connect('activate', self.cut)
+        self.menu.append(item)
+
+        item = Gtk.MenuItem(_('Copy'))  # Copy path to clipboard
+        item.set_sensitive(readable)
+        item.connect('activate', self.copy)
+        self.menu.append(item)
+
+        paste = _('Paste') if paths and os.path.isdir(paths[0]) and paths[0] == self.folder and len(paths) > 1 else _('Paste on this folder')
+        item = Gtk.MenuItem(paste)
+        item.set_sensitive(writable)  # And clipboard has paths
+        item.connect('activate', self.paste)
+        self.menu.append(item)
+
+        self.menu.append(Gtk.SeparatorMenuItem())
+
+        item = Gtk.MenuItem(_('Sort items'))
+        menu = Gtk.Menu()
+        item.set_submenu(menu)
+        self.menu.append(item)
+
+        self.menu.append(Gtk.SeparatorMenuItem())
+
+        item_name = Gtk.RadioMenuItem(_('By name'))
+        item_name.set_active(self.sort == G.SORT_BY_NAME)
+        #item_name.connect('activate', self.__sort_changed, G.SORT_BY_NAME)
+        menu.append(item_name)
+
+        item_size = Gtk.RadioMenuItem(_('By size'), group=item_name)
+        item_size.set_active(self.sort == G.SORT_BY_SIZE)
+        #item_size.connect('activate', self.__sort_changed, G.SORT_BY_SIZE)
+        menu.append(item_size)
+
+        menu.append(Gtk.SeparatorMenuItem())
+
+        item = Gtk.CheckMenuItem(_('Reverse'))
+        item.set_active(self.reverse)
+        #item.connect('activate', self.__reverse_changed)
+        menu.append(item)
+
+        item = Gtk.MenuItem(_('Properties'))
+        item.connect('activate', self.__show_properties)
+        self.menu.append(item)
+
+        self.menu.show_all()
+
+    def __show_properties(self, item):
+        row = self.view.get_selected_row()
+        paths = [self.get_path_from_row(row)] if row else []
+        self.emit('show-properties', paths)
 
 
 class InfoBar(Gtk.InfoBar):
@@ -838,10 +1074,13 @@ class Notebook(Gtk.Notebook):
     __gsignals__ = {
         'new-page': (GObject.SIGNAL_RUN_FIRST, None, [str]),
         'remove-page': (GObject.SIGNAL_RUN_FIRST, None, [object]),
+        'reconnect-all-views': (GObject.SIGNAL_RUN_FIRST, None, []),
         }
 
     def __init__(self):
         Gtk.Notebook.__init__(self)
+
+        self.mode = G.MODE_ICONS
 
         button_add = Gtk.ToolButton.new_from_stock(Gtk.STOCK_ADD)
         button_add.connect('clicked', self.__new_page_without_path)
@@ -871,7 +1110,11 @@ class Notebook(Gtk.Notebook):
         hbox = Gtk.HBox()
         label = Gtk.Label(G.Dirs()[path])
         button = Gtk.ToolButton.new_from_stock(Gtk.STOCK_CLOSE)
-        view = View(path)
+        if self.mode == G.MODE_ICONS:
+            view = IconView(path)
+
+        elif self.mode == G.MODE_LIST:
+            view = ListView(path)
 
         button.connect('clicked', self.__close_page, view)
 
@@ -896,6 +1139,26 @@ class Notebook(Gtk.Notebook):
             label = hbox.get_children()[0]
             label.set_label(G.Dirs()[view.folder])
 
+    def set_view_mode(self, mode):
+        if mode == self.mode:
+            return
+
+        self.mode = mode
+        folders = []
+        idx = self.get_current_page()
+
+        for view in self.get_children():
+            folders.append(view.folder)
+
+        while self.get_children():
+            self.remove(self.get_children()[0])
+
+        for folder in folders:
+            self.create_page_from_path(folder)
+
+        self.set_current_page(idx)
+        self.emit('reconnect-all-views')
+
 
 class PlaceBox(Gtk.HBox):
 
@@ -904,6 +1167,7 @@ class PlaceBox(Gtk.HBox):
         'go-forward': (GObject.SIGNAL_RUN_FIRST, None, []),
         'go-up': (GObject.SIGNAL_RUN_FIRST, None, []),
         'change-directory': (GObject.SIGNAL_RUN_FIRST, None, [str]),
+        'change-view-mode': (GObject.SIGNAL_RUN_FIRST, None, [int]),
         }
 
     def __init__(self):
@@ -956,6 +1220,18 @@ class PlaceBox(Gtk.HBox):
         self.entry.connect('activate', self.__change_directory)
         self.hbox.pack_start(self.entry, True, True, 10)
 
+        hbox = Gtk.HBox()
+        Gtk.StyleContext.add_class(hbox.get_style_context(), 'linked')
+        self.hbox.pack_start(hbox, False, False, 10)
+
+        button_icons = Gtk.RadioToolButton(icon_name='view-grid-symbolic')
+        button_icons.connect('toggled', self.change_view_mode, G.MODE_ICONS)
+        hbox.pack_start(button_icons, False, False, 0)
+
+        button_list = Gtk.RadioToolButton(group=button_icons, icon_name='view-list-symbolic')
+        button_list.connect('toggled', self.change_view_mode, G.MODE_LIST)
+        hbox.pack_start(button_list, False, False, 0)
+
         button_close = Gtk.Button()
         image = Gtk.Image.new_from_icon_name('window-close', Gtk.IconSize.BUTTON)
         button_close.set_relief(Gtk.ReliefStyle.NONE)
@@ -982,6 +1258,10 @@ class PlaceBox(Gtk.HBox):
         else:
             self.buttonbox.hide()
             self.entry.show()
+
+    def change_view_mode(self, button, mode):
+        if button.get_active():
+            self.emit('change-view-mode', mode)
 
     def set_folder(self, folder):
         # FIXME: Hay que agregar botones de desplazamientos, de lo contrario
@@ -1095,20 +1375,7 @@ class StatusBar(Gtk.HBox):
         self.scale.connect('value-changed', self.__value_changed)
         self.pack_end(self.scale, False, False, 10)
 
-    def update_label(self, folder, paths, model):
-        selected = []
-        for path in paths:
-            treeiter = model.get_iter(path)
-            name = model.get_value(treeiter, 0)
-            directory = os.path.join(folder, name)
-
-            if name == G.HOME_NAME:
-                directory = G.HOME_DIR
-
-            directory = directory.replace('//', '/')
-            directory = directory.replace('//', '/')
-            selected.append(directory)
-
+    def update_label(self, selected=[], folder=''):
         label = ''
         if len(selected) == 0:
             label += folder
@@ -1117,6 +1384,9 @@ class StatusBar(Gtk.HBox):
             label += selected[0]
 
         label += ' ' + G.get_size(selected)
+        if not label.replace(' ', ''):
+            label = folder
+
         self.label.set_label(label)
 
     def __value_changed(self, widget):

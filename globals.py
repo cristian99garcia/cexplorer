@@ -66,6 +66,9 @@ MSG_NOT_EXISTS = _('"@" can not be displayed because it does not exist.')
 SORT_BY_NAME = 0
 SORT_BY_SIZE = 1
 
+MODE_ICONS = 0
+MODE_LIST = 1
+
 HOME_DIR = clear_path(os.path.expanduser('~'))
 HOME_NAME = _('Personal folder')
 DESKTOP_DIR = clear_path(GLib.get_user_special_dir(GLib.USER_DIRECTORY_DESKTOP))
