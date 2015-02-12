@@ -401,6 +401,7 @@ class ListView(Gtk.ScrolledWindow):
         self.menu = None
         self.sort = G.SORT_BY_NAME
         self.reverse = False
+        self.activation = G.ACTIVATION_WITH_TWO_CLICKS
 
         self.view.set_can_focus(True)
         self.view.set_selection_mode(Gtk.SelectionMode.MULTIPLE)
@@ -494,13 +495,14 @@ class ListView(Gtk.ScrolledWindow):
         row = self.view.get_selected_row()
         path = self.get_path_from_row(row, None)
 
-        if event.button == 1 and event.type.value_name == 'GDK_2BUTTON_PRESS' and path:
-            self.emit('item-selected', path)
+        if path:
+            if event.button == 1 and event.type.value_name == self.activation:
+                self.emit('item-selected', path)
 
-        elif event.button == 2 and path:
-            self.emit('new-page', path)
+            elif event.button == 2:
+                self.emit('new-page', path)
 
-        elif event.button == 3:
+        if event.button == 3:
             row =  self.view.get_row_at_y(event.y)
 
             self.view.select_row(row)
