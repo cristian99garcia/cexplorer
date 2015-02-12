@@ -141,11 +141,13 @@ class IconView(Gtk.ScrolledWindow):
         self.menu = None
         self.sort = G.SORT_BY_NAME
         self.reverse = False
+        self.activation = G.ACTIVATION_WITH_TWO_CLICKS
 
         self.view.set_text_column(0)
         self.view.set_pixbuf_column(1)
         self.view.set_can_focus(True)
         self.view.set_model(self.model)
+        self.view.set_item_padding(0)
         self.view.set_selection_mode(Gtk.SelectionMode.MULTIPLE)
 
         self.view.connect('button-press-event', self.__button_press_event_cb)
@@ -201,7 +203,7 @@ class IconView(Gtk.ScrolledWindow):
         if event.button == 2:
             self.emit('new-page', directory)
 
-        if event.button == 1 and event.type.value_name == 'GDK_2BUTTON_PRESS':
+        if event.button == 1 and event.type.value_name == self.activation:
             self.emit('item-selected', directory)
 
     def make_menu(self, paths):

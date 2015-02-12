@@ -69,6 +69,9 @@ SORT_BY_SIZE = 1
 MODE_ICONS = 0
 MODE_LIST = 1
 
+ACTIVATION_WITH_A_CLICK = 'GDK_BUTTON_PRESS'
+ACTIVATION_WITH_TWO_CLICKS = 'GDK_2BUTTON_PRESS'
+
 HOME_DIR = clear_path(os.path.expanduser('~'))
 HOME_NAME = _('Personal folder')
 DESKTOP_DIR = clear_path(GLib.get_user_special_dir(GLib.USER_DIRECTORY_DESKTOP))
