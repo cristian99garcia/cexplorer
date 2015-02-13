@@ -68,8 +68,7 @@ class SearchEntry(Gtk.Window):
 
     def __realize_cb(self, window):
         self.hide()
-        self.get_window().set_decorations(False)
-        self.get_window().process_all_updates()
+        self.set_decorated(0)
 
     def __destroy_event_cb(self, window, event):
         self.hide()
@@ -113,6 +112,48 @@ class SearchEntry(Gtk.Window):
             GObject.source_remove(self.timeout)
 
         self.timeout = GObject.timeout_add(5000, self.hide)
+
+
+class Tooltip(Gtk.Window):
+
+    __gtype_name__ = 'Tooltip'
+
+    def __init__(self, path=os.path.expanduser('~')):
+        Gtk.Window.__init__(self)
+
+        self.set_decorated(0)
+        self.set_opacity(0.85)
+
+        css_provider = Gtk.CssProvider()
+        css_provider.load_from_data(G.TOOLTIP_THEME)
+
+        style_context = self.get_style_context()
+        style_context.add_provider(
+            css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER)
+
+        self.hbox = Gtk.HBox()
+        icon_theme = Gtk.IconTheme()
+        pixbuf = icon_theme.choose_icon(['folder-download'], 128, 0).load_icon()
+        image = Gtk.Image.new_from_pixbuf(pixbuf)
+
+        vbox = Gtk.VBox()
+        label = Gtk.Label()
+        label.set_markup('<big><big><b>%s</b></big></big>' % G.Dirs()[path])
+        vbox.pack_start(label, False, False, 10)
+
+        label = Gtk.Label()
+        label.set_markup('<big><i>%s</i></big>' % path)
+        vbox.pack_start(label, False, False, 0)
+
+        label = Gtk.Label()
+        label.set_markup('<big>%s: %s</big>' % (_('Last access'), G.get_modified_time(path)))
+        vbox.pack_start(label, False, False, 0)
+
+        self.hbox.pack_start(image, False, False, 10)
+        self.hbox.pack_start(vbox, True, True, 10)
+
+        self.add(self.hbox)
+        self.hbox.show_all()
 
 
 class IconView(Gtk.ScrolledWindow):
@@ -447,6 +488,9 @@ class ListView(Gtk.ScrolledWindow):
             hbox.pack_start(label, False, False, 0)
 
             row = Gtk.ListBoxRow()
+            tooltip = Tooltip(path)
+            row.set_tooltip_window(tooltip)
+            row.set_tooltip_text('None')
             row.add(hbox)
             self.view.add(row)
 
