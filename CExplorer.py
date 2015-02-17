@@ -48,7 +48,7 @@ class CExplorer(Gtk.Window):
         self.icon_size = G.DEFAULT_ICON_SIZE
         self.pressed_keys = []
         self.shortcut = ''
-        self.clipborad = []
+        self.clipborad = (None, [])  # (Action('Copy/Cut'), [file1, file2 ...])
 
         self.vbox = Gtk.VBox()
 
@@ -255,8 +255,26 @@ class CExplorer(Gtk.Window):
         elif self.shortcut == 'Ctrl+-':
             self.statusbar.disminuit()
 
+        elif self.shortcut == 'Ctrl+x':
+            self._cut()
+
+        elif self.shortcut == 'Ctrl+c':
+            self._copy()
+
+        elif self.shortcut == 'Ctrl+v':
+            self._paste()
+
         else:
             self.search_text()
+
+    def _cut(self):
+        pass
+
+    def _copy(self):
+        pass
+
+    def _paste(self):
+        pass
 
     def search_text(self):
         text = self.shortcut
