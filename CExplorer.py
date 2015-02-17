@@ -49,6 +49,7 @@ class CExplorer(Gtk.Window):
         self.pressed_keys = []
         self.shortcut = ''
         self.clipborad = (None, [])  # (Action('Copy/Cut'), [file1, file2 ...])
+        self.actions = None
 
         self.vbox = Gtk.VBox()
 
@@ -99,6 +100,8 @@ class CExplorer(Gtk.Window):
         self.connect('realize', self.__realize_cb)
         self.connect('key-press-event', self.__key_press_event_cb)
         self.connect('key-release-event', self.__key_release_event_cb)
+
+        self.make_actions()
 
         self.add(self.vbox)
         self.show_all()
@@ -226,43 +229,37 @@ class CExplorer(Gtk.Window):
 
         os.rename(old_path, new_path)
 
+    def show_and_hide_files(self):
+        self.scan_folder.set_show_hidden_files(not self.scan_folder.show_hidden_files)
+
+    def select_all_items(self):
+        view = self.get_actual_view()
+        view.select_all()
+
+    def search_files(self):
+        print 'Search files'
+
+    def new_window(self):
+        print 'New window'
+
+    def make_actions(self):
+        self.actions = {'Ctrl+l': (self.place_box.change_mode, ()),
+                        'Ctrl+w': (self.remove_page, (None, None, True,)),
+                        'Ctrl+t': (self.new_page, ()),
+                        'Ctrl+h': (self.show_and_hide_files, ()),
+                        'Ctrĺ+a': (self.select_all_items, ()),
+                        'Ctrĺ+f': (self.search_files, ()),
+                        'Ctrl+n': (self.new_window, ()),
+                        'Ctrl++': (self.statusbar.aument, ()),
+                        'Ctrl+-': (self.statusbar.disminuit, ()),
+                        'Ctrl+x': (self._cut, ()),
+                        'Ctrl+c': (self._copy, ()),
+                        'Ctrl+v': (self._paste, ())}
+
     def check_shortcut(self):
-        if self.shortcut  == 'Ctrl+l':
-            self.place_box.change_mode()
-
-        elif self.shortcut == 'Ctrl+w':
-            self.remove_page(close=True)
-
-        elif self.shortcut == 'Ctrl+t':
-            self.new_page()
-
-        elif self.shortcut == 'Ctrl+h':
-            self.scan_folder.set_show_hidden_files(not self.scan_folder.show_hidden_files)
-
-        elif self.shortcut == 'Ctrl+a':
-            view = self.get_actual_view()
-            view.view.select_all()
-
-        elif self.shortcut == 'Ctrl+f':
-            print 'Search files'
-
-        elif self.shortcut == 'Ctrl+n':
-            print 'New window'
-
-        elif self.shortcut == 'Ctrl++':
-            self.statusbar.aument()
-
-        elif self.shortcut == 'Ctrl+-':
-            self.statusbar.disminuit()
-
-        elif self.shortcut == 'Ctrl+x':
-            self._cut()
-
-        elif self.shortcut == 'Ctrl+c':
-            self._copy()
-
-        elif self.shortcut == 'Ctrl+v':
-            self._paste()
+        if self.shortcut in self.actions:
+            func, args = self.actions[self.shortcut]
+            func(*args)
 
         else:
             self.search_text()

@@ -410,6 +410,9 @@ class IconView(Gtk.ScrolledWindow):
 
         GObject.idle_add(self.__show_icons)
 
+    def select_all(self):
+        self.select_all()
+
     def __show_icons(self):
         for path in self.folders + self.files:
             name = self.dirs[path]
@@ -525,6 +528,9 @@ class ListView(Gtk.ScrolledWindow):
 
     def paste(self, *args):
         print args
+
+    def select_all(self):
+        pass
 
     def set_icon_size(self, icon_size):
         if icon_size != self.icon_size:
