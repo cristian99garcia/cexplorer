@@ -197,18 +197,7 @@ class IconView(Gtk.ScrolledWindow):
         self.add(self.view)
 
     def __selection_changed(self, view):
-        selected = []
-        for path in self.view.get_selected_items():
-            treeiter = self.model.get_iter(path)
-            name = self.model.get_value(treeiter, 0)
-            directory = os.path.join(self.folder, name)
-
-            if name == G.HOME_NAME:
-                directory = G.HOME_DIR
-
-            selected.append(G.clear_path(directory))
-
-        self.emit('selection-changed', selected)
+        self.emit('selection-changed', self.get_selected_paths())
 
     def __button_press_event_cb(self, view, event):
         path = view.get_path_at_pos(int(event.x), int(event.y))
@@ -246,6 +235,20 @@ class IconView(Gtk.ScrolledWindow):
 
         if event.button == 1 and event.type.value_name == self.activation:
             self.emit('item-selected', directory)
+
+    def get_selected_paths(self):
+        selected = []
+        for path in self.view.get_selected_items():
+            treeiter = self.model.get_iter(path)
+            name = self.model.get_value(treeiter, 0)
+            directory = os.path.join(self.folder, name)
+
+            if name == G.HOME_NAME:
+                directory = G.HOME_DIR
+
+            selected.append(G.clear_path(directory))
+
+        return selected
 
     def make_menu(self, paths):
         all_are_dirs = True
@@ -519,6 +522,10 @@ class ListView(Gtk.ScrolledWindow):
             return G.HOME_DIR
 
         return os.path.join(self.folder, name)
+
+    def get_selected_paths(self):
+        row = self.view.get_selected_row()
+        return [self.get_path_from_row(row)] if row else []
 
     def cut(self, *args):
         print args
