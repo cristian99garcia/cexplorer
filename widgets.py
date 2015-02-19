@@ -742,10 +742,16 @@ class LateralView(Gtk.ScrolledWindow):
         #        +-- GtkHBox
         #              +-- GtkImage(folder image)
         #              +-- GtkLabel(Show the folder name)
+        #
+        #  GtkListBoxRow structur when is a section indicator:
+        #      GtkListBoxRow: set property "sensitive" to False
+        #        +-- GtkHBox
+        #              +-- GtkLabel(Show the section name)
 
         self.dirs = G.Dirs()
         self.folder = None
         self._emit = True
+        self.__devices_section_added = False
 
         self.view.set_selection_mode(Gtk.SelectionMode.SINGLE)
 
@@ -753,6 +759,7 @@ class LateralView(Gtk.ScrolledWindow):
         self.volume_monitor.connect('mount-added', self.add_mount)
         self.volume_monitor.connect('mount-removed', self.remove_mount)
 
+        self.add_section(_('Places'))
         self.make_items()
         self.select_item(G.HOME_DIR)
         self.set_size_request(200, -1)
@@ -884,6 +891,18 @@ class LateralView(Gtk.ScrolledWindow):
 
         self.menu.show_all()
 
+    def add_section(self, name):
+        row = Gtk.ListBoxRow()
+        row.set_sensitive(False)
+        self.view.add(row)
+
+        hbox = Gtk.HBox()
+        row.add(hbox)
+
+        label = Gtk.Label(name)
+        label.modify_font(Pango.FontDescription('bold'))
+        hbox.pack_start(label, False, False, 10)
+
     def make_items(self):
         for x in self.dirs:
             if x != '/':
@@ -936,6 +955,10 @@ class LateralView(Gtk.ScrolledWindow):
         self.view.select_row(self.rows[path])
 
     def add_mount(self, volume_monitor=None, volume=None, data=None):
+        if not self.__devices_section_added:
+            self.add_section(_('Devices'))
+            self.__devices_section_added = True
+
         if data:
             hbox = Gtk.HBox()
             image = Gtk.Image.new_from_pixbuf(data['pixbuf'])
