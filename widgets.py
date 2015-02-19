@@ -726,13 +726,22 @@ class LateralView(Gtk.ScrolledWindow):
         self.volume_monitor = Gio.VolumeMonitor.get()
         self.menu = None
         self.view = Gtk.ListBox()
-        #   view structur:
-        #   GtkListBox:
-        #       GtkListBoxRow: add property "data"
-        #           GtkImage, GtkVBox, GtkEventBox(For eject a mount)
-        #                         GtkHBox
-        #                             GtkLabel
-        #                         GtkLevelBar(Show used space)
+        #  GtkListBoxRow structur when is a mount or a device:
+        #      GtkListBoxRow: add properties "data" and "_path"
+        #        +-- GtkHBox
+        #              +-- GtkImage(device image)
+        #              +-- GtkVBox
+        #              |     +-- GtkHBox
+        #              |     |     +-- GtkLabel(show the device name)
+        #              |     +-- GtkLevelBar
+        #              +-- GtkEventBox
+        #                    +-- GtkImage
+        #
+        #  GtkListBoxRow structur when is a normal folder:
+        #      GtkListBoxRow: add property "_path"
+        #        +-- GtkHBox
+        #              +-- GtkImage(folder image)
+        #              +-- GtkLabel(Show the folder name)
 
         self.dirs = G.Dirs()
         self.folder = None
@@ -897,18 +906,14 @@ class LateralView(Gtk.ScrolledWindow):
 
         row = Gtk.ListBoxRow()
         row._path = path
-        vbox = Gtk.VBox()
         hbox = Gtk.HBox()
         label = Gtk.Label(name)
         label.set_ellipsize(Pango.EllipsizeMode.END)
-        umount_button = Gtk.ToolButton.new_from_stock(Gtk.STOCK_REMOVE)
-        levelbar = Gtk.LevelBar()
 
         hbox.pack_start(image, False, False, 10)
         hbox.pack_start(label, False, False, 5)
-        vbox.pack_start(hbox, False, False, 2)
 
-        row.add(vbox)
+        row.add(hbox)
         self.view.add(row)
 
         self.rows[path] = row
