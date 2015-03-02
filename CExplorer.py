@@ -106,122 +106,27 @@ class CExplorer(Gtk.Window):
         self.add(self.vbox)
         self.show_all()
 
-    def __realize_cb(self, *args):
-        self.place_box.change_mode()
+    def set_folder(self, folder):
+        readable, writable = G.get_access(folder)
+        if readable and os.path.isdir(folder):
+            self.folder = folder
+            self.get_actual_view().folder = folder
+            self.place_box.set_folder(folder)
+            self.scan_folder.set_folder(folder)
 
-    def __key_press_event_cb(self, widget, event):
-        if not event.keyval in self.pressed_keys:
-            self.pressed_keys.append(event.keyval)
+        elif os.path.isfile(folder):
+            #  Open file
+            pass
 
-        shortcut = ''
-        for key in self.pressed_keys:
-            if key in G.KEYS.keys():
-                shortcut += G.KEYS[key] + '+'
-
-        self.shortcut = shortcut[:-1]
-        self.check_shortcut()
-
-    def __key_release_event_cb(self, widget, event):
-        key = G.KEYS.get(event.keyval, False)
-        view = self.get_actual_view()
-
-        if not self.place_box.entry.is_focus():
-            if key == 'Enter':
-                self.__item_selected(None, view.get_selected_paths())
-
-            elif key == 'Backspace':
-                self.go_up()
-
-        if event.keyval in self.pressed_keys:
-            self.pressed_keys.remove(event.keyval)
-
-    def __item_selected(self, widget, paths):
-        if type(paths) == str:
-            paths = [G.clear_path(paths)]
-
-        paths.reverse()
-        if not paths:
-            return
-
-        if paths[0] != self.folder:
-            self.set_folder(paths[0])
-
-        for path in paths[1:]:
-            if os.path.isdir(paths[0]):
-                self.new_page(path)
-
-    def __change_view_mode(self, place_box, mode):
-        self.mode = mode
-        self.notebook.set_view_mode(mode)
-
-    def __switch_page(self, notebook, view, page):
-        GObject.idle_add(self.update_widgets, view=view)
-
-    def __open_selected_items(self, widget):
-        view = self.get_actual_view()
-        paths = []
-
-        if widget == self.search_entry:
-            self.shortcut = ''
-            self.pressed_keys = []
-
-        for _path in view.view.get_selected_items():
-            item = view.model.get_iter(_path)
-            name = view.model.get_value(item, 0)
-            path = os.path.join(view.folder, name)
-            paths.append(path)
-
-        self.__item_selected(None, paths)
-
-    def __remove_page_from_notebook(self, notebook, view):
-        idx = self.notebook.get_children().index(view)
-        self.remove_page(idx)
-
-    def __reconnect_all_views(self, notebook):
-        for view in self.notebook.get_children():
-            view.icon_size = self.icon_size
-            view.connect('selection-changed', self.__update_statusbar)
-            view.connect('item-selected', self.__item_selected)
-            view.connect('item-selected', lambda *args: self.notebook.update_tab_labels())
-            view.connect('new-page', lambda x, p: self.new_page(p))
-            view.connect('show-properties', self.show_properties_for_paths)
-            view.connect('copy', self.copy)
-            view.connect('paste', self.paste)
-
-    def __icon_size_changed(self, widget, value):
-        self.icon_size = value
-        for view in self.notebook.get_children():
-            GObject.idle_add(view.set_icon_size, value)
-
-    def __update_statusbar(self, view=None, selected=[]):
-        if selected:
-            self.statusbar.update_label(selected, self.folder)
-
-        else:
-            self.statusbar.label.set_label(self.folder)
-
-    def __try_rename(self, widget, old_path, new_name):
-        readable, writable = G.get_access(old_path)
-        new_path = os.path.join(G.get_parent_directory(old_path), new_name)
-        if not writable:
-            widget.entry.set_text(self.dirs[old_path])
-            self.infobar.set_msg(G.ERROR_NOT_UNWRITABLE, old_path)
+        elif not os.path.exists(folder):
+            self.infobar.set_msg(G.ERROR_NOT_EXISTS, folder)
             self.infobar.show_all()
-            return
 
-        if os.path.exists(new_path):
-            widget.entry.set_text(self.dirs[old_path])
-            self.infobar.set_msg(G.ERROR_ALREADY_EXISTS, new_path)
+        elif not readable:
+            self.infobar.set_msg(G.ERROR_NOT_PERMISSIONS_READABLE, folder)
             self.infobar.show_all()
-            return
 
-        if '/' in new_name:
-            widget.entry.set_text(self.dirs[old_path])
-            self.infobar.set_msg(G.ERROR_INVALID_NAME, new_name)
-            self.infobar.show_all()
-            return
-
-        os.rename(old_path, new_path)
+        GObject.idle_add(self.update_widgets, force=False)
 
     def show_and_hide_files(self):
         self.scan_folder.set_show_hidden_files(not self.scan_folder.show_hidden_files)
@@ -360,28 +265,6 @@ class CExplorer(Gtk.Window):
     def change_place_view(self):
         self.place_box.change_mode()
 
-    def set_folder(self, folder):
-        readable, writable = G.get_access(folder)
-        if readable and os.path.isdir(folder):
-            self.folder = folder
-            self.get_actual_view().folder = folder
-            self.place_box.set_folder(folder)
-            self.scan_folder.set_folder(folder)
-
-        elif os.path.isfile(folder):
-            #  Open file
-            pass
-
-        elif not os.path.exists(folder):
-            self.infobar.set_msg(G.ERROR_NOT_EXISTS, folder)
-            self.infobar.show_all()
-
-        elif not readable:
-            self.infobar.set_msg(G.ERROR_NOT_PERMISSIONS_READABLE, folder)
-            self.infobar.show_all()
-
-        GObject.idle_add(self.update_widgets, force=False)
-
     def go_up(self, *args):
         self.set_folder(G.get_parent_directory(self.folder))
 
@@ -463,6 +346,123 @@ class CExplorer(Gtk.Window):
         else:
             self.other_view = False
             return self.view
+
+    def __realize_cb(self, *args):
+        self.place_box.change_mode()
+
+    def __key_press_event_cb(self, widget, event):
+        if not event.keyval in self.pressed_keys:
+            self.pressed_keys.append(event.keyval)
+
+        shortcut = ''
+        for key in self.pressed_keys:
+            if key in G.KEYS.keys():
+                shortcut += G.KEYS[key] + '+'
+
+        self.shortcut = shortcut[:-1]
+        self.check_shortcut()
+
+    def __key_release_event_cb(self, widget, event):
+        key = G.KEYS.get(event.keyval, False)
+        view = self.get_actual_view()
+
+        if not self.place_box.entry.is_focus():
+            if key == 'Enter':
+                self.__item_selected(None, view.get_selected_paths())
+
+            elif key == 'Backspace':
+                self.go_up()
+
+        if event.keyval in self.pressed_keys:
+            self.pressed_keys.remove(event.keyval)
+
+    def __item_selected(self, widget, paths):
+        if type(paths) == str:
+            paths = [G.clear_path(paths)]
+
+        paths.reverse()
+        if not paths:
+            return
+
+        if paths[0] != self.folder:
+            self.set_folder(paths[0])
+
+        for path in paths[1:]:
+            if os.path.isdir(paths[0]):
+                self.new_page(path)
+
+    def __change_view_mode(self, place_box, mode):
+        self.mode = mode
+        self.notebook.set_view_mode(mode)
+
+    def __switch_page(self, notebook, view, page):
+        GObject.idle_add(self.update_widgets, view=view)
+
+    def __open_selected_items(self, widget):
+        view = self.get_actual_view()
+        paths = []
+
+        if widget == self.search_entry:
+            self.shortcut = ''
+            self.pressed_keys = []
+
+        for _path in view.view.get_selected_items():
+            item = view.model.get_iter(_path)
+            name = view.model.get_value(item, 0)
+            path = os.path.join(view.folder, name)
+            paths.append(path)
+
+        self.__item_selected(None, paths)
+
+    def __remove_page_from_notebook(self, notebook, view):
+        idx = self.notebook.get_children().index(view)
+        self.remove_page(idx)
+
+    def __reconnect_all_views(self, notebook):
+        for view in self.notebook.get_children():
+            view.icon_size = self.icon_size
+            view.connect('selection-changed', self.__update_statusbar)
+            view.connect('item-selected', self.__item_selected)
+            view.connect('item-selected', lambda *args: self.notebook.update_tab_labels())
+            view.connect('new-page', lambda x, p: self.new_page(p))
+            view.connect('show-properties', self.show_properties_for_paths)
+            view.connect('copy', self.copy)
+            view.connect('paste', self.paste)
+
+    def __icon_size_changed(self, widget, value):
+        self.icon_size = value
+        for view in self.notebook.get_children():
+            GObject.idle_add(view.set_icon_size, value)
+
+    def __update_statusbar(self, view=None, selected=[]):
+        if selected:
+            self.statusbar.update_label(selected, self.folder)
+
+        else:
+            self.statusbar.label.set_label(self.folder)
+
+    def __try_rename(self, widget, old_path, new_name):
+        readable, writable = G.get_access(old_path)
+        new_path = os.path.join(G.get_parent_directory(old_path), new_name)
+        if not writable:
+            widget.entry.set_text(self.dirs[old_path])
+            self.infobar.set_msg(G.ERROR_NOT_UNWRITABLE, old_path)
+            self.infobar.show_all()
+            return
+
+        if os.path.exists(new_path):
+            widget.entry.set_text(self.dirs[old_path])
+            self.infobar.set_msg(G.ERROR_ALREADY_EXISTS, new_path)
+            self.infobar.show_all()
+            return
+
+        if '/' in new_name:
+            widget.entry.set_text(self.dirs[old_path])
+            self.infobar.set_msg(G.ERROR_INVALID_NAME, new_name)
+            self.infobar.show_all()
+            return
+
+        os.rename(old_path, new_path)
 
     def _exit(self, *args):
         #  Check actuals process

@@ -58,6 +58,25 @@ class SearchEntry(Gtk.Window):
         self.add(self.entry)
         self.show_all()
 
+    def set_pos(self, x, y):
+        allocation = self.entry.get_allocation()
+        #x += allocation.width
+        #x += 10
+        y += allocation.height
+        self.move(x, y)
+
+    def _show(self, text):
+        #self.entry.set_selection(-1, -1)
+        self.show_all()
+        self.entry.set_text(text)
+        self.entry.set_position(-1)
+
+    def reset_timeout(self):
+        if self.timeout:
+            GObject.source_remove(self.timeout)
+
+        self.timeout = GObject.timeout_add(5000, self.hide)
+
     def __hide_cb(self, window):
         if self.timeout:
             GObject.source_remove(self.timeout)
@@ -93,25 +112,6 @@ class SearchEntry(Gtk.Window):
         elif key == 'Enter':
             self.hide()
             self.emit('select')
-
-    def set_pos(self, x, y):
-        allocation = self.entry.get_allocation()
-        #x += allocation.width
-        #x += 10
-        y += allocation.height
-        self.move(x, y)
-
-    def _show(self, text):
-        #self.entry.set_selection(-1, -1)
-        self.show_all()
-        self.entry.set_text(text)
-        self.entry.set_position(-1)
-
-    def reset_timeout(self):
-        if self.timeout:
-            GObject.source_remove(self.timeout)
-
-        self.timeout = GObject.timeout_add(5000, self.hide)
 
 
 class IconView(Gtk.ScrolledWindow):
@@ -154,46 +154,6 @@ class IconView(Gtk.ScrolledWindow):
 
         self.add(self.view)
 
-    def __selection_changed(self, view):
-        self.emit('selection-changed', self.get_selected_paths())
-
-    def __button_press_event_cb(self, view, event):
-        path = view.get_path_at_pos(int(event.x), int(event.y))
-        selection = view.get_selected_items()
-        paths = []
-
-        if event.button == 3:
-            if not path in selection:
-                self.view.unselect_all()
-                selection = []
-
-                if path:
-                    self.view.select_path(path)
-                    selection = view.get_selected_items()
-
-            for treepath in selection:
-                treeiter = self.model.get_iter(treepath)
-                paths.append(self.get_path_from_treeiter(treeiter))
-
-            if not paths:
-                paths = [self.folder]
-
-            self.make_menu(paths)
-            self.menu.popup(None, None, None, None, event.button, event.time)
-            return True
-
-        if not path:
-            return
-
-        treeiter = self.model.get_iter(path)
-        directory = self.get_path_from_treeiter(treeiter)
-
-        if event.button == 2:
-            self.emit('new-page', directory)
-
-        if event.button == 1 and event.type.value_name == self.activation:
-            self.emit('item-selected', directory)
-
     def get_selected_paths(self):
         selected = []
         for path in self.view.get_selected_items():
@@ -207,6 +167,33 @@ class IconView(Gtk.ScrolledWindow):
             selected.append(G.clear_path(directory))
 
         return selected
+
+    def get_path_from_treeiter(self, treeiter):
+        name = self.model.get_value(treeiter, 0)
+        directory = os.path.join(self.folder, name)
+
+        if name == G.HOME_NAME:
+            directory = G.HOME_DIR
+
+        directory = directory.replace('//', '/')
+        directory = directory.replace('//', '/')
+
+        return directory
+
+    def get_paths(self):
+        paths = []
+
+        for path in self.view.get_selected_items():
+            treeiter = self.model.get_iter(path)
+            paths.append(self.get_path_from_treeiter(treeiter))
+
+        return paths
+
+    def set_icon_size(self, icon_size):
+        if icon_size != self.icon_size:
+            GObject.idle_add(self.model.clear)
+            self.icon_size = icon_size
+            GObject.idle_add(self.__show_icons)
 
     def make_menu(self, paths):
         all_are_dirs = True
@@ -291,35 +278,6 @@ class IconView(Gtk.ScrolledWindow):
 
         self.menu.show_all()
 
-    def __open_from_menu(self, item, new_page=False):
-        paths = self.get_paths()
-
-        if new_page:
-            for path in paths:
-                self.emit('new-page', path)
-
-        elif not new_page:
-            self.emit('item-selected', paths)
-
-    def __sort_changed(self, item, sort):
-        self.sort = sort
-
-    def __reverse_changed(self, item):
-        self.reverse = not self.reverse
-
-    def __show_properties(self, item):
-        paths = self.get_paths()
-        self.emit('show-properties', paths)
-
-    def get_paths(self):
-        paths = []
-
-        for path in self.view.get_selected_items():
-            treeiter = self.model.get_iter(path)
-            paths.append(self.get_path_from_treeiter(treeiter))
-
-        return paths
-
     def cut(self, *args):
         self.emit('cut', self.get_paths())
 
@@ -335,23 +293,8 @@ class IconView(Gtk.ScrolledWindow):
 
         self.emit('paste', self.folder)
 
-    def set_icon_size(self, icon_size):
-        if icon_size != self.icon_size:
-            GObject.idle_add(self.model.clear)
-            self.icon_size = icon_size
-            GObject.idle_add(self.__show_icons)
-
-    def get_path_from_treeiter(self, treeiter):
-        name = self.model.get_value(treeiter, 0)
-        directory = os.path.join(self.folder, name)
-
-        if name == G.HOME_NAME:
-            directory = G.HOME_DIR
-
-        directory = directory.replace('//', '/')
-        directory = directory.replace('//', '/')
-
-        return directory
+    def select_all(self):
+        self.select_all()
 
     def show_icons(self, paths):
         GObject.idle_add(self.model.clear)
@@ -371,8 +314,65 @@ class IconView(Gtk.ScrolledWindow):
 
         GObject.idle_add(self.__show_icons)
 
-    def select_all(self):
-        self.select_all()
+    def __selection_changed(self, view):
+        self.emit('selection-changed', self.get_selected_paths())
+
+    def __button_press_event_cb(self, view, event):
+        path = view.get_path_at_pos(int(event.x), int(event.y))
+        selection = view.get_selected_items()
+        paths = []
+
+        if event.button == 3:
+            if not path in selection:
+                self.view.unselect_all()
+                selection = []
+
+                if path:
+                    self.view.select_path(path)
+                    selection = view.get_selected_items()
+
+            for treepath in selection:
+                treeiter = self.model.get_iter(treepath)
+                paths.append(self.get_path_from_treeiter(treeiter))
+
+            if not paths:
+                paths = [self.folder]
+
+            self.make_menu(paths)
+            self.menu.popup(None, None, None, None, event.button, event.time)
+            return True
+
+        if not path:
+            return
+
+        treeiter = self.model.get_iter(path)
+        directory = self.get_path_from_treeiter(treeiter)
+
+        if event.button == 2:
+            self.emit('new-page', directory)
+
+        if event.button == 1 and event.type.value_name == self.activation:
+            self.emit('item-selected', directory)
+
+    def __open_from_menu(self, item, new_page=False):
+        paths = self.get_paths()
+
+        if new_page:
+            for path in paths:
+                self.emit('new-page', path)
+
+        elif not new_page:
+            self.emit('item-selected', paths)
+
+    def __sort_changed(self, item, sort):
+        self.sort = sort
+
+    def __reverse_changed(self, item):
+        self.reverse = not self.reverse
+
+    def __show_properties(self, item):
+        paths = self.get_paths()
+        self.emit('show-properties', paths)
 
     def __show_icons(self):
         for path in self.folders + self.files:
@@ -445,6 +445,17 @@ class ListView(Gtk.ScrolledWindow):
             self.view.append_column(col)
             number += 1
 
+    def get_selected_paths(self):
+        return self.selected_paths
+
+    def set_icon_size(self, icon_size):
+        if icon_size != self.icon_size:
+            self.icon_size = icon_size
+            GObject.idle_add(self.__show_icons)
+
+    def select_all(self):
+        self.selection.select_all()
+
     def show_icons(self, paths):
         del self.folders
         del self.files
@@ -460,14 +471,6 @@ class ListView(Gtk.ScrolledWindow):
                 self.files.append(path)
 
         GObject.idle_add(self.__show_icons)
-
-    def set_icon_size(self, icon_size):
-        if icon_size != self.icon_size:
-            self.icon_size = icon_size
-            GObject.idle_add(self.__show_icons)
-
-    def select_all(self):
-        self.selection.select_all()
 
     def make_menu(self):
         all_are_dirs = True
@@ -557,9 +560,6 @@ class ListView(Gtk.ScrolledWindow):
 
         self.menu.show_all()
 
-    def get_selected_paths(self):
-        return self.selected_paths
-
     def __show_icons(self):
         self.model.clear()
 
@@ -640,9 +640,6 @@ class InfoBar(Gtk.InfoBar):
         self.msg = Gtk.Label()
         vbox.pack_start(self.msg, False, False, 0)
 
-    def __hide(self, widget, response=None):
-        GObject.idle_add(self.hide)
-
     def set_msg(self, msg_type, info):
         if msg_type == G.ERROR_NOT_READABLE:
             self.title.set_label(G.TITLE_ERROR_UNREADABLE)
@@ -663,6 +660,9 @@ class InfoBar(Gtk.InfoBar):
         elif msg_type == G.ERROR_NOT_EXISTS:
             self.title.set_label(G.TITLE_ERROR_NOT_EXISTS)
             self.msg.set_label(G.MSG_NOT_EXISTS.replace('@', info))
+
+    def __hide(self, widget, response=None):
+        GObject.idle_add(self.hide)
 
 
 class LateralView(Gtk.ScrolledWindow):
@@ -729,19 +729,6 @@ class LateralView(Gtk.ScrolledWindow):
         self.view.connect('button-press-event', self.__button_press_event_cb)
         self.add(self.view)
 
-    def __realize_cb(self, widget):
-        for row in self.view.get_children():
-            if not hasattr(row, 'data'):
-                continue
-
-            data = row.data
-            if ('volume' in data and not data['volume'].get_mount()) or ('mounted' in data and not data['mounted']):
-                data['levelbar'].hide()
-                data['button-close'].hide()
-
-            if 'umontable' in data and not data['umontable']:
-                data['button-close'].hide()
-
     def mount_done_cb(self, volume, result, loop, row):
         volume.mount_finish(result)
         loop.quit()
@@ -760,6 +747,19 @@ class LateralView(Gtk.ScrolledWindow):
 
         if not 'umontable' in row.data or ('umontable' in row.data and row.data['umontable']):
             row.data['button-close'].show_all()
+
+    def __realize_cb(self, widget):
+        for row in self.view.get_children():
+            if not hasattr(row, 'data'):
+                continue
+
+            data = row.data
+            if ('volume' in data and not data['volume'].get_mount()) or ('mounted' in data and not data['mounted']):
+                data['levelbar'].hide()
+                data['button-close'].hide()
+
+            if 'umontable' in data and not data['umontable']:
+                data['button-close'].hide()
 
     def __selection_changed(self, listbox, row):
         if not row:
@@ -811,17 +811,6 @@ class LateralView(Gtk.ScrolledWindow):
 
                 break
         """
-    def __button_press_event_cb(self, listbox, event):
-        if event.button == 3:
-            row =  self.view.get_row_at_y(event.y)
-            if not row:
-                return
-
-            self._emit = False
-            self.view.select_row(row)
-            self.make_menu(row)
-            self.menu.popup(None, None, None, None, event.button, event.time)
-            return True
 
     def make_menu(self, row):
         path = self.paths[row]
@@ -1116,6 +1105,19 @@ class LateralView(Gtk.ScrolledWindow):
             self.emit('item-selected', G.get_parent_directory(path))
 
 
+    def __button_press_event_cb(self, listbox, event):
+        if event.button == 3:
+            row =  self.view.get_row_at_y(event.y)
+            if not row:
+                return
+
+            self._emit = False
+            self.view.select_row(row)
+            self.make_menu(row)
+            self.menu.popup(None, None, None, None, event.button, event.time)
+            return True
+
+
 class Notebook(Gtk.Notebook):
 
     __gsignals__ = {
@@ -1137,20 +1139,25 @@ class Notebook(Gtk.Notebook):
         self.set_action_widget(button_add, Gtk.PackType.END)
         button_add.show_all()
 
-    def __new_page_without_path(self, *args):
-        self.emit('new-page', '')
+    def set_view_mode(self, mode):
+        if mode == self.mode:
+            return
 
-    def __close_page(self, button, view):
-        self.emit('remove-page', view)
+        self.mode = mode
+        folders = []
+        idx = self.get_current_page()
 
-    def __scroll_event_cb(self, widget, event):
-        if event.direction == Gdk.ScrollDirection.UP:
-            if self.get_current_page() > 0:
-                self.prev_page()
+        for view in self.get_children():
+            folders.append(view.folder)
 
-        elif event.direction == Gdk.ScrollDirection.DOWN:
-            if self.get_current_page() < len(self.get_children()):
-                self.next_page()
+        while self.get_children():
+            self.remove(self.get_children()[0])
+
+        for folder in folders:
+            self.create_page_from_path(folder)
+
+        self.set_current_page(idx)
+        self.emit('reconnect-all-views')
 
     def create_page_from_path(self, path):
         eventbox = Gtk.EventBox()
@@ -1186,25 +1193,20 @@ class Notebook(Gtk.Notebook):
             label = hbox.get_children()[0]
             label.set_label(G.Dirs()[view.folder])
 
-    def set_view_mode(self, mode):
-        if mode == self.mode:
-            return
+    def __new_page_without_path(self, *args):
+        self.emit('new-page', '')
 
-        self.mode = mode
-        folders = []
-        idx = self.get_current_page()
+    def __close_page(self, button, view):
+        self.emit('remove-page', view)
 
-        for view in self.get_children():
-            folders.append(view.folder)
+    def __scroll_event_cb(self, widget, event):
+        if event.direction == Gdk.ScrollDirection.UP:
+            if self.get_current_page() > 0:
+                self.prev_page()
 
-        while self.get_children():
-            self.remove(self.get_children()[0])
-
-        for folder in folders:
-            self.create_page_from_path(folder)
-
-        self.set_current_page(idx)
-        self.emit('reconnect-all-views')
+        elif event.direction == Gdk.ScrollDirection.DOWN:
+            if self.get_current_page() < len(self.get_children()):
+                self.next_page()
 
 
 class PlaceBox(Gtk.HBox):
@@ -1292,24 +1294,6 @@ class PlaceBox(Gtk.HBox):
         self.vbox.add(self.hbox)
         self.add(self.vbox)
 
-    def __realize_cb(self, widget):
-        self.entry.hide()
-
-    def change_mode(self):
-        self.show_buttons = not self.show_buttons
-
-        if self.show_buttons:
-            self.entry.hide()
-            self.buttonbox.show_all()
-
-        else:
-            self.buttonbox.hide()
-            self.entry.show()
-
-    def change_view_mode(self, button, mode):
-        if button.get_active():
-            self.emit('change-view-mode', mode)
-
     def set_folder(self, folder):
         # FIXME: Hay que agregar botones de desplazamientos, de lo contrario
         #        cuando haya que abrir una dirección larga, se agrandara la
@@ -1384,6 +1368,24 @@ class PlaceBox(Gtk.HBox):
         else:
             self.entry.show()
 
+    def change_mode(self):
+        self.show_buttons = not self.show_buttons
+
+        if self.show_buttons:
+            self.entry.hide()
+            self.buttonbox.show_all()
+
+        else:
+            self.buttonbox.hide()
+            self.entry.show()
+
+    def change_view_mode(self, button, mode):
+        if button.get_active():
+            self.emit('change-view-mode', mode)
+
+    def __realize_cb(self, widget):
+        self.entry.hide()
+
     def __go(self, widget, direction):
         self.emit(direction)
 
@@ -1436,12 +1438,6 @@ class StatusBar(Gtk.HBox):
 
         self.label.set_label(label)
 
-    def __value_changed(self, widget):
-        value = int(widget.get_value())
-        if value != self.icon_size:
-            self.icon_size = value
-            self.emit('icon-size-changed', value * 16)
-
     def aument(self):
         value = self.scale.get_value()
         value += 1
@@ -1457,6 +1453,12 @@ class StatusBar(Gtk.HBox):
             value = 1
 
         self.scale.set_value(value)
+
+    def __value_changed(self, widget):
+        value = int(widget.get_value())
+        if value != self.icon_size:
+            self.icon_size = value
+            self.emit('icon-size-changed', value * 16)
 
 
 class PropertiesWindow(Gtk.Dialog):
