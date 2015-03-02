@@ -240,7 +240,10 @@ class IconView(Gtk.ScrolledWindow):
         item.connect('activate', self.copy)
         self.menu.append(item)
 
-        paste = _('Paste') if os.path.isdir(paths[0]) and paths[0] == self.folder and len(paths) > 1 else _('Paste on this folder')
+        paste = _('Paste') if os.path.isdir(paths[0]) and \
+            paths[0] == self.folder and \
+            len(paths) > 1 else _('Paste on this folder')
+
         item = Gtk.MenuItem(paste)
         item.set_sensitive(writable)  # And clipboard has paths
         item.connect('activate', self.paste)
@@ -492,7 +495,10 @@ class ListView(Gtk.ScrolledWindow):
 
         self.menu = Gtk.Menu()
 
-        if self.selected_paths and (self.selected_paths[0] != self.folder or len(self.selected_paths) > 1):
+        if self.selected_paths and (
+            self.selected_paths[0] != self.folder or len(
+                self.selected_paths) > 1):
+
             item = Gtk.MenuItem(_('Open'))
             item.set_sensitive(readable)
             item.connect('activate', self.__open_from_menu)
@@ -522,7 +528,11 @@ class ListView(Gtk.ScrolledWindow):
         #item.connect('activate', self.copy)
         self.menu.append(item)
 
-        paste = _('Paste') if self.selected_paths and os.path.isdir(self.selected_paths[0]) and self.selected_paths[0] == self.folder and len(self.selected_paths) > 1 else _('Paste on this folder')
+        paste = _('Paste') if self.selected_paths and \
+            os.path.isdir(self.selected_paths[0]) and \
+            self.selected_paths[0] == self.folder and \
+            len(self.selected_paths) > 1 else _('Paste on this folder')
+
         item = Gtk.MenuItem(paste)
         item.set_sensitive(writable)  # And clipboard has paths
         #item.connect('activate', self.paste)
@@ -745,7 +755,9 @@ class LateralView(Gtk.ScrolledWindow):
         row.data['levelbar'].set_value(used_space)
         row.data['levelbar'].show()
 
-        if not 'umontable' in row.data or ('umontable' in row.data and row.data['umontable']):
+        if not 'umontable' in row.data or \
+                ('umontable' in row.data and row.data['umontable']):
+
             row.data['button-close'].show_all()
 
     def __realize_cb(self, widget):
@@ -754,7 +766,9 @@ class LateralView(Gtk.ScrolledWindow):
                 continue
 
             data = row.data
-            if ('volume' in data and not data['volume'].get_mount()) or ('mounted' in data and not data['mounted']):
+            if ('volume' in data and not data['volume'].get_mount()) or \
+                    ('mounted' in data and not data['mounted']):
+
                 data['levelbar'].hide()
                 data['button-close'].hide()
 
@@ -781,7 +795,8 @@ class LateralView(Gtk.ScrolledWindow):
                     mo = Gio.MountOperation()
                     mo.set_anonymous(True)
                     loop = GObject.MainLoop()
-                    data['volume'].mount(0, mo, None, self.mount_done_cb, loop, row)
+                    data['volume'].mount(
+                        0, mo, None, self.mount_done_cb, loop, row)
                     loop.run()
 
         """
@@ -794,10 +809,12 @@ class LateralView(Gtk.ScrolledWindow):
                 mount_operation.set_anonymous(True)
 
                 if device and not row.device_data['mounted']:
-                    device.mount(0, mount_operation, None, self.mount_finish, loop)
+                    device.mount(
+                        0, mount_operation, None, self.mount_finish, loop)
 
                 elif device and row.device_data['mounted']:
-                    self.folder = G.clear_path(device.get_mount().get_root().get_path())
+                    self.folder = G.clear_path(
+                        device.get_mount().get_root().get_path())
                     self.emit('item-selected', self.folder)
                     break
 
@@ -911,7 +928,8 @@ class LateralView(Gtk.ScrolledWindow):
             image = Gtk.Image.new_from_pixbuf(data['pixbuf'])
             label = Gtk.Label(data['name'])
             levelbar = Gtk.LevelBar()
-            image_close = Gtk.Image.new_from_icon_name('media-eject-symbolic', Gtk.IconSize.MENU)
+            image_close = Gtk.Image.new_from_icon_name(
+                'media-eject-symbolic', Gtk.IconSize.MENU)
             button_close = Gtk.EventBox()
 
             _hbox = Gtk.HBox()
@@ -958,7 +976,9 @@ class LateralView(Gtk.ScrolledWindow):
             self.rows[path] = row
             self.paths[row] = path
 
-            if ('volume' in data and not data['volume'].get_mount()) or ('mounted' in data and not data['mounted']):
+            if ('volume' in data and not data['volume'].get_mount()) or \
+                    ('mounted' in data and not data['mounted']):
+
                 levelbar.hide()
                 button_close.hide()
 
@@ -1011,7 +1031,8 @@ class LateralView(Gtk.ScrolledWindow):
         label = Gtk.Label(name)
 
         button_close = Gtk.EventBox()
-        image_close = Gtk.Image.new_from_icon_name('media-eject-symbolic', Gtk.IconSize.MENU)
+        image_close = Gtk.Image.new_from_icon_name(
+            'media-eject-symbolic', Gtk.IconSize.MENU)
         button_close.set_can_focus(True)
         button_close.add(image_close)
 
@@ -1104,10 +1125,9 @@ class LateralView(Gtk.ScrolledWindow):
         if G.clear_path(self.folder) == G.clear_path(path):
             self.emit('item-selected', G.get_parent_directory(path))
 
-
     def __button_press_event_cb(self, listbox, event):
         if event.button == 3:
-            row =  self.view.get_row_at_y(event.y)
+            row = self.view.get_row_at_y(event.y)
             if not row:
                 return
 
@@ -1261,7 +1281,8 @@ class PlaceBox(Gtk.HBox):
         hbox.pack_start(self.button_up, False, False, 0)
 
         self.buttonbox = Gtk.HBox()
-        Gtk.StyleContext.add_class(self.buttonbox.get_style_context(), 'linked')
+        Gtk.StyleContext.add_class(
+            self.buttonbox.get_style_context(), 'linked')
         self.hbox.pack_start(self.buttonbox, True, True, 10)
 
         self.entry = Gtk.Entry()
@@ -1277,12 +1298,14 @@ class PlaceBox(Gtk.HBox):
         button_icons.connect('toggled', self.change_view_mode, G.MODE_ICONS)
         hbox.pack_start(button_icons, False, False, 0)
 
-        button_list = Gtk.RadioToolButton(group=button_icons, icon_name='view-list-symbolic')
+        button_list = Gtk.RadioToolButton(
+            group=button_icons, icon_name='view-list-symbolic')
         button_list.connect('toggled', self.change_view_mode, G.MODE_LIST)
         hbox.pack_start(button_list, False, False, 0)
 
         button_close = Gtk.Button()
-        image = Gtk.Image.new_from_icon_name('window-close', Gtk.IconSize.BUTTON)
+        image = Gtk.Image.new_from_icon_name(
+            'window-close', Gtk.IconSize.BUTTON)
         button_close.set_relief(Gtk.ReliefStyle.NONE)
         button_close.add(image)
         button_close.connect('clicked', self.__close)
@@ -1311,14 +1334,18 @@ class PlaceBox(Gtk.HBox):
             self.folder = self.folder[:-1]
 
         home = G.HOME_DIR[:-1]
+        startswith = self.folder.startswith(folder)
+        has_children = bool(self.buttonbox.get_children())
+        if has_children:
+            no_home = self.folder.startswith(folder) and self.folder != '/home'
+            button = self.buttonbox.get_children()[0]
+            label = button.get_children()[0]
+            other_label = not label.get_label() == G.HOME_NAME
+            no_home_or_other_label = no_home or other_label
 
-        if self.folder.startswith(folder) and \
-            self.buttonbox.get_children() and \
-            ((self.folder.startswith(folder) and self.folder != '/home') or \
-            not self.buttonbox.get_children()[0].get_children()[0].get_label() == G.HOME_NAME):
-
-            self.folder = folder
-            return
+            if startswith and has_children and no_home_or_other_label:
+                self.folder = folder
+                return
 
         self.folder = folder
 
@@ -1499,7 +1526,8 @@ class PropertiesWindow(Gtk.Dialog):
             hbox.pack_start(self.label, True, True, 10)
 
         self.stack = Gtk.Stack()
-        self.stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
+        self.stack.set_transition_type(
+            Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
         self.stack.set_transition_duration(1000)
 
         self.grid_info = Gtk.Grid()
@@ -1528,7 +1556,8 @@ class PropertiesWindow(Gtk.Dialog):
 
         self.vbox_permissions = Gtk.VBox()
         self.make_permissions()
-        self.stack.add_titled(self.vbox_permissions, 'permissions', _('Permissions'))
+        self.stack.add_titled(
+            self.vbox_permissions, 'permissions', _('Permissions'))
 
         self.stack_switcher = Gtk.StackSwitcher()
         self.stack_switcher.set_stack(self.stack)

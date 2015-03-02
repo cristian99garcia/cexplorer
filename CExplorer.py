@@ -67,7 +67,8 @@ class CExplorer(Gtk.Window):
         self.notebook.connect('switch-page', self.__switch_page)
         self.notebook.connect('new-page', lambda w, p: self.new_page(p))
         self.notebook.connect('remove-page', self.__remove_page_from_notebook)
-        self.notebook.connect('reconnect-all-views', self.__reconnect_all_views)
+        self.notebook.connect(
+            'reconnect-all-views', self.__reconnect_all_views)
         self.paned.pack2(self.notebook, True)
 
         self.place_box = PlaceBox()
@@ -80,8 +81,9 @@ class CExplorer(Gtk.Window):
         self.lateral_view.connect('item-selected', self.__item_selected)
         self.lateral_view.connect('item-selected', self.__update_statusbar)
         self.lateral_view.connect('new-page', lambda l, p: self.new_page(p))
-        self.lateral_view.connect('show-properties',
-            lambda l, p: self.show_properties_for_paths(None, [p]))
+        self.lateral_view.connect(
+            'show-properties', lambda l, p: self.show_properties_for_paths(
+                None, [p]))
         self.lateral_view.select_item(G.HOME_DIR)
         self.paned.pack1(self.lateral_view, False, True)
 
@@ -129,7 +131,8 @@ class CExplorer(Gtk.Window):
         GObject.idle_add(self.update_widgets, force=False)
 
     def show_and_hide_files(self):
-        self.scan_folder.set_show_hidden_files(not self.scan_folder.show_hidden_files)
+        self.scan_folder.set_show_hidden_files(
+            not self.scan_folder.show_hidden_files)
 
     def select_all_items(self):
         view = self.get_actual_view()
@@ -274,7 +277,8 @@ class CExplorer(Gtk.Window):
         view.icon_size = self.icon_size
         view.connect('selection-changed', self.__update_statusbar)
         view.connect('item-selected', self.__item_selected)
-        view.connect('item-selected', lambda *args: self.notebook.update_tab_labels())
+        view.connect(
+            'item-selected', lambda *args: self.notebook.update_tab_labels())
         view.connect('new-page', lambda x, p: self.new_page(p))
         view.connect('show-properties', self.show_properties_for_paths)
         view.connect('copy', self.copy)
@@ -423,7 +427,8 @@ class CExplorer(Gtk.Window):
             view.icon_size = self.icon_size
             view.connect('selection-changed', self.__update_statusbar)
             view.connect('item-selected', self.__item_selected)
-            view.connect('item-selected', lambda *args: self.notebook.update_tab_labels())
+            view.connect('item-selected',
+                         lambda *args: self.notebook.update_tab_labels())
             view.connect('new-page', lambda x, p: self.new_page(p))
             view.connect('show-properties', self.show_properties_for_paths)
             view.connect('copy', self.copy)

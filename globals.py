@@ -66,7 +66,8 @@ TITLE_ERROR_ALREADY_EXISTS = _('Could not rename.')
 TITLE_ERROR_INVALID_NAME = _('Could not rename.')
 TITLE_ERROR_NOT_EXISTS = _('Could not be displayed here.')
 
-MSG_UNREADABLE = _('You do not have sufficient permissions to view the content of "@".')
+MSG_UNREADABLE = _(
+    'You do not have sufficient permissions to view the content of "@".')
 MSG_UNWRITABLE = _('You do not have sufficient permissions to edit "@".')
 MSG_ALREADY_EXISTS = _('You can not rename to "@", because already exists.')
 MSG_INVALID_NAME = _('"@"" is a invalid name for a file.')
@@ -86,15 +87,19 @@ ACTIVATION_WITH_TWO_CLICKS = 'GDK_2BUTTON_PRESS'
 
 HOME_DIR = clear_path(os.path.expanduser('~'))
 HOME_NAME = _('Personal folder')
-DESKTOP_DIR = clear_path(GLib.get_user_special_dir(GLib.USER_DIRECTORY_DESKTOP))
+DESKTOP_DIR = clear_path(
+    GLib.get_user_special_dir(GLib.USER_DIRECTORY_DESKTOP))
 DESKTOP_NAME = _('Desktop')
-DOCUMENTS_DIR = clear_path(GLib.get_user_special_dir(GLib.USER_DIRECTORY_DOCUMENTS))
+DOCUMENTS_DIR = clear_path(
+    GLib.get_user_special_dir(GLib.USER_DIRECTORY_DOCUMENTS))
 DOCUMENTS_NAME = _('Documents')
-DOWNLOADS_DIR = clear_path(GLib.get_user_special_dir(GLib.USER_DIRECTORY_DOWNLOAD))
+DOWNLOADS_DIR = clear_path(
+    GLib.get_user_special_dir(GLib.USER_DIRECTORY_DOWNLOAD))
 DOWNLOADS_NAME = _('Donwloads')
 MUSIC_DIR = clear_path(GLib.get_user_special_dir(GLib.USER_DIRECTORY_MUSIC))
 MUSIC_NAME = _('Music')
-PICTURES_DIR = clear_path(GLib.get_user_special_dir(GLib.USER_DIRECTORY_PICTURES))
+PICTURES_DIR = clear_path(
+    GLib.get_user_special_dir(GLib.USER_DIRECTORY_PICTURES))
 PICTURES_NAME = _('Pictures')
 VIDEOS_DIR = clear_path(GLib.get_user_special_dir(GLib.USER_DIRECTORY_VIDEOS))
 VIDEOS_NAME = _('Videos')
@@ -255,7 +260,8 @@ class Dirs(object):
 
     def get_pixbuf_symbolic(self, path):
         icon_theme = Gtk.IconTheme()
-        return icon_theme.load_icon(self.symbolic_icons[path], DEFAULT_ITEM_ICON_SIZE, 0)
+        return icon_theme.load_icon(
+            self.symbolic_icons[path], DEFAULT_ITEM_ICON_SIZE, 0)
 
     def add_mount(self, path):
         if not clear_path(path) in self.mounts:
@@ -318,7 +324,9 @@ class ScanFolder(GObject.GObject):
         for name in _files:
             filename = os.path.join(self.folder, name)
 
-            if (not name.startswith('.') and not name.endswith('~')) or self.show_hidden_files:
+            if (not name.startswith('.') and not name.endswith('~')) or \
+                    self.show_hidden_files:
+
                 if os.path.isdir(filename):
                     directories.append(filename)
 
@@ -410,7 +418,8 @@ def get_pixbuf_from_path(path, size=None):
     size = DEFAULT_ICON_SIZE if not size else size
     icon_theme = Gtk.IconTheme()
     gfile = Gio.File.new_for_path(path)
-    info = gfile.query_info('standard::icon', Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, None)
+    info = gfile.query_info(
+        'standard::icon', Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, None)
     icon = info.get_icon()
     types = icon.get_names()
     pixbuf = None
@@ -495,7 +504,7 @@ def natural_sort(_list):
 
 def get_size_unit(num):
     min_unit = 'B'
-    units = ['KB','MB','GB','TB','PB','EB','ZB', None]
+    units = ['KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', None]
     for unit in units:
         if abs(num) < 1024.0:
             idx = units.index(unit)
@@ -535,15 +544,20 @@ def get_size(paths):
 
     if len(folders) and len(files):
         if len(folders) > 1:
-            string = '%d %s %d %s' % (len(folders), _('folders selecteds, contains'), quantity, _('items'))
+            string = '%d %s %d %s' % (
+                len(folders), _('folders selecteds, contains'), quantity,
+                _('items'))
 
         else:
-            string = '%s %s %d %s' % (Dirs()[folders[0]], _('selected, contains'), quantity, _('items'))
+            string = '%s %s %d %s' % (
+                Dirs()[folders[0]],
+                _('selected, contains'), quantity, _('items'))
 
         if len(files) > 1:
             size_str = get_size_unit(size)
             string += ' ' if string else ''
-            string += '%d %s %s' % (len(files), 'files selecteds, weight', size, size_str)
+            string += '%d %s %s' % (
+                len(files), 'files selecteds, weight', size, size_str)
 
         else:
             size_str = get_size_unit(size)
@@ -552,7 +566,9 @@ def get_size(paths):
 
     elif len(folders) and not len(files):
         if len(folders) > 1:
-            string = '%d %s %d %s' % (len(folders),  _('folders selected, contains'), quantity, _('items'))
+            string = '%d %s %d %s' % (
+                len(folders), _('folders selected, contains'), quantity,
+                _('items'))
 
         else:
             string = '%s %d %s' % (_('contains'), quantity, _('items'))
@@ -560,7 +576,8 @@ def get_size(paths):
     elif not len(folders) and len(files):
         size_str = get_size_unit(size)
         if len(files) > 1:
-            string = '%d %s %s' % (len(files), _('files selected, weight'), size_str)
+            string = '%d %s %s' % (
+                len(files), _('files selected, weight'), size_str)
             return string.replace('1 files', 'A file')
 
         else:
@@ -577,7 +594,8 @@ def get_simple_size(path):
 
     else:
         quantity = len(os.listdir(path))
-        return '%d %s' % (quantity, _('elements') if quantity != 1 else _('element'))
+        return '%d %s' % (
+            quantity, _('elements') if quantity != 1 else _('element'))
 
 
 def get_type(path):
@@ -596,7 +614,8 @@ def get_type(path):
 
     if mime_type == unknown:
         import commands
-        return commands.getoutput('file --mime-type %s' % path).split(':')[1][1:]
+        return commands.getoutput(
+            'file --mime-type %s' % path).split(':')[1][1:]
 
 
 def get_simple_type(path):
@@ -640,7 +659,8 @@ def get_modified_time(path):
 
 def get_simple_modified_time(path):
     time = datetime.datetime.now()
-    month = ('0' + str(time.month)) if len(str(time.month)) == 1 else time.month
+    month = (
+        '0' + str(time.month)) if len(str(time.month)) == 1 else time.month
     day = ('0' + str(time.day)) if len(str(time.day)) == 1 else time.day
     return '%d/%s/%s' % (time.year, month, day)
 
