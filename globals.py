@@ -36,7 +36,7 @@ def clear_path(path):
     path = path.replace('//', '/')
     path = path.replace('//', '/')
 
-    if not path.endswith('/'):
+    if not path.endswith('/') and os.path.isdir(path):
         path = path + '/'
 
     return path
@@ -76,6 +76,9 @@ SORT_BY_SIZE = 1
 
 MODE_ICONS = 0
 MODE_LIST = 1
+
+CUT = 'mv'
+COPY = 'cp'
 
 ACTIVATION_WITH_A_CLICK = 'GDK_BUTTON_PRESS'
 ACTIVATION_WITH_TWO_CLICKS = 'GDK_2BUTTON_PRESS'
@@ -118,12 +121,16 @@ for x in range(65, 91) + range(97, 123):
 
 class Dirs(object):
     """
-    A Singleton class, it's possible make a only instance of this class:
+    A Singleton class, is possible make a only instance of this class:
 
     >>> dirs1 = Dirs()
     >>> dirs2 = Dirs()
     >>> print dirs1 == dirs2
     ... True
+
+    >>> dirs1.hello = 'Hello'
+    >>> print dirs2.hello
+    ... Hello
     """
 
     _instance = None
@@ -254,7 +261,6 @@ class Dirs(object):
             self.mounts.append(clear_path(path))
 
     def remove_mount(self, path):
-        print path
         if clear_path(path) in self.mounts:
             self.mounts.remove(clear_path(path))
 
@@ -329,6 +335,74 @@ class ScanFolder(GObject.GObject):
 
         self.show_hidden_files = if_show
         GObject.idle_add(self.scan)
+
+
+class CCPManager(GObject.GObject):
+    # Cut, Copy and Paste
+
+    __gsignals__ = {
+        'error': (GObject.SIGNAL_RUN_FIRST, None, [])
+        }
+
+    def __init__(self):
+        GObject.GObject.__init__(self)
+
+    def __start_new_operation(self, command):
+        def start():
+            os.system(command)
+
+        import thread
+        thread.start_new_thread(start, ())
+
+    def add_action(self, action, files, directory):
+        for path in files:
+            dir1 = clear_path(get_parent_directory(path))
+            dir2 = clear_path(directory)
+            old_path = path
+            is_directory = os.path.isdir(path)
+
+            if dir1 == dir2:
+                if action == CUT:
+                    self.emit('error')  # Descript or identifier the error
+                    return
+
+                copy = '-%s' % _('copy')
+                another_copy = '-%s' % 'another copy'
+                if is_directory:
+                    path = path[:-1]
+
+                path += (copy + '/') if is_directory else copy
+
+                if os.path.exists(path):
+                    path = path[:len(copy)]
+                    path += another_copy
+
+                if os.path.exists(path):
+                    path = path[:len(another_copy)]
+                    dirname = get_parent_directory(path)
+                    filename = path.split('/')[-1]
+                    path = os.path.join(dirname, '2° %s' % _('copy'))
+
+                if os.path.exists(path):
+                    name = path.split('/')[-1]
+                    number = ''
+
+                    for x in re.findall('[0-9]', name):
+                        number += x
+
+                    number = int(number)
+                    number += 1
+
+                    name = '%s - %d° %s' % (name, number, _('copy'))
+                    path = os.path.join(get_parent_directory(path), name)
+
+            if is_directory and action == COPY:
+                command = 'cp -r %s %s' % (old_path, path)
+
+            else:
+                command = '%s %s %s' % (action, old_path, path)
+
+            self.__start_new_operation(command)
 
 
 def get_pixbuf_from_path(path, size=None):
