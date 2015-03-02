@@ -402,27 +402,50 @@ class ListView(Gtk.ScrolledWindow):
         self.folder = folder
         self.icon_size = 10
         self.dirs = G.Dirs()
-        self.view = Gtk.ListBox()
         self.menu = None
         self.sort = G.SORT_BY_NAME
         self.reverse = False
         self.activation = G.ACTIVATION_WITH_TWO_CLICKS
+        self.selected_paths = []
 
+        # Icon, Name, Size, Type, Modified, Path
+        self.model = Gtk.ListStore(GdkPixbuf.Pixbuf, str, str, str, str, str)
+
+        self.view = Gtk.TreeView()
         self.view.set_can_focus(True)
-        self.view.set_selection_mode(Gtk.SelectionMode.MULTIPLE)
-
+        self.view.set_model(self.model)
         self.view.connect('button-press-event', self.__button_press_event_cb)
-        self.view.connect('row-selected', self.selection_changed)
-
         self.add(self.view)
 
-    def __clear(self):
-        while self.view.get_children():
-            self.view.remove(self.view.get_children()[0])
+        self.selection = self.view.get_selection()
+        self.selection.set_mode(Gtk.SelectionMode.MULTIPLE)
+        self.selection.connect('changed', self.__selection_changed_cb)
+
+        col_name = Gtk.TreeViewColumn(title=_('Name'))
+        col_name.set_expand(True)
+        #col_name.set_sizing(Gtk.TreeViewColumnSizing.AUTOSIZE)
+
+        cell_icon = Gtk.CellRendererPixbuf()
+        cell_text = Gtk.CellRendererText()
+        col_name.pack_start(cell_icon, False)
+        col_name.pack_start(cell_text, True)
+
+        col_name.add_attribute(cell_icon, 'pixbuf', 0)
+        col_name.add_attribute(cell_text, 'text', 1)
+
+        self.view.append_column(col_name)
+
+        number = 2
+        for name in [_('Size'), _('Type'), _('Modified')]:
+            col = Gtk.TreeViewColumn(title=name)
+            cell = Gtk.CellRendererText()
+            col.pack_start(cell, True)
+            col.add_attribute(cell, 'text', number)
+
+            self.view.append_column(col)
+            number += 1
 
     def show_icons(self, paths):
-        GObject.idle_add(self.__clear)
-
         del self.folders
         del self.files
 
@@ -438,109 +461,35 @@ class ListView(Gtk.ScrolledWindow):
 
         GObject.idle_add(self.__show_icons)
 
-    def __show_icons(self):
-        for path in self.folders + self.files:
-            name = self.dirs[path]
-            pixbuf = G.get_pixbuf_from_path(path, self.icon_size)
-
-            hbox = Gtk.HBox()
-            image = Gtk.Image.new_from_pixbuf(pixbuf)
-            hbox.pack_start(image, False, False, 10)
-
-            label = Gtk.Label(self.dirs[path])
-            label.modify_font(Pango.FontDescription('%d' % (self.icon_size / 2.0)))
-            hbox.pack_start(label, False, False, 0)
-
-            row = Gtk.ListBoxRow()
-            self.view.add(row)
-
-        self.show_all()
-
-    def __open_from_menu(self, item, new_page=False):
-        row = self.view.get_selected_row()
-        paths = [self.get_path_from_row(row)] if row else []
-
-        if new_page:
-            for path in paths:
-                self.emit('new-page', path)
-
-        elif not new_page:
-            self.emit('item-selected', paths)
-
-    def get_path_from_row(self, row, _return=None):
-        if not row:
-            return _return
-
-        name = row.get_children()[0].get_children()[1].get_label()
-        if name == G.HOME_NAME:
-            return G.HOME_DIR
-
-        return os.path.join(self.folder, name)
-
-    def get_selected_paths(self):
-        row = self.view.get_selected_row()
-        return [self.get_path_from_row(row)] if row else []
-
-    def cut(self, *args):
-        print args
-
-    def copy(self, *args):
-        print args
-
-    def paste(self, *args):
-        print args
-
-    def select_all(self):
-        pass
-
     def set_icon_size(self, icon_size):
         if icon_size != self.icon_size:
-            GObject.idle_add(self.__clear)
             self.icon_size = icon_size
             GObject.idle_add(self.__show_icons)
 
-    def selection_changed(self, listbox, row):
-        self.emit('selection-changed', [self.get_path_from_row(row, '')])
+    def select_all(self):
+        self.selection.select_all()
 
-    def __button_press_event_cb(self, view, event):
-        row = self.view.get_selected_row()
-        path = self.get_path_from_row(row, None)
-
-        if path:
-            if event.button == 1 and event.type.value_name == self.activation:
-                self.emit('item-selected', path)
-
-            elif event.button == 2:
-                self.emit('new-page', path)
-
-        if event.button == 3:
-            row =  self.view.get_row_at_y(event.y)
-
-            self.view.select_row(row)
-            self.make_menu([self.get_path_from_row(row)] if row else [])
-            self.menu.popup(None, None, None, None, event.button, event.time)
-            return True
-
-    def make_menu(self, paths):
+    def make_menu(self):
         all_are_dirs = True
-        if paths:
-            readable, writable = G.get_access(paths[0])
-            for x in paths[1:]:
-                _r, _w = G.get_access(x)
-                readable = readable and _r
-                writable = writable and _w
+        readable = True
+        writable = True
+        if self.selected_paths:
+            for x in self.selected_paths:
+                r, w = G.get_access(x)
+                readable = readable and r
+                writable = writable and w
 
         else:
             readable, writable = G.get_access(self.folder)
 
-        for x in paths:
+        for x in self.selected_paths:
             if not os.path.isdir(x):
                 all_are_dirs = False
                 break
 
         self.menu = Gtk.Menu()
 
-        if paths and (paths[0] != self.folder or len(paths) > 1):
+        if self.selected_paths and (self.selected_paths[0] != self.folder or len(self.selected_paths) > 1):
             item = Gtk.MenuItem(_('Open'))
             item.set_sensitive(readable)
             item.connect('activate', self.__open_from_menu)
@@ -562,18 +511,18 @@ class ListView(Gtk.ScrolledWindow):
 
         item = Gtk.MenuItem(_('Cut'))  # Copy path to clipboard
         item.set_sensitive(writable)
-        item.connect('activate', self.cut)
+        #item.connect('activate', self.cut)
         self.menu.append(item)
 
         item = Gtk.MenuItem(_('Copy'))  # Copy path to clipboard
         item.set_sensitive(readable)
-        item.connect('activate', self.copy)
+        #item.connect('activate', self.copy)
         self.menu.append(item)
 
-        paste = _('Paste') if paths and os.path.isdir(paths[0]) and paths[0] == self.folder and len(paths) > 1 else _('Paste on this folder')
+        paste = _('Paste') if self.selected_paths and os.path.isdir(self.selected_paths[0]) and self.selected_paths[0] == self.folder and len(self.selected_paths) > 1 else _('Paste on this folder')
         item = Gtk.MenuItem(paste)
         item.set_sensitive(writable)  # And clipboard has paths
-        item.connect('activate', self.paste)
+        #item.connect('activate', self.paste)
         self.menu.append(item)
 
         self.menu.append(Gtk.SeparatorMenuItem())
@@ -608,10 +557,65 @@ class ListView(Gtk.ScrolledWindow):
 
         self.menu.show_all()
 
+    def get_selected_paths(self):
+        return self.selected_paths
+
+    def __show_icons(self):
+        self.model.clear()
+
+        for path in self.folders + self.files:
+            pixbuf = G.get_pixbuf_from_path(path, self.icon_size)
+            name = self.dirs[path]
+            size = G.get_simple_size(path)
+            _type = G.get_simple_type(path)
+            modified = G.get_simple_modified_time(path)
+
+            self.model.append([pixbuf, name, size, _type, modified, path])
+
+        self.show_all()
+
+    def __button_press_event_cb(self, view, event):
+        treepath = view.get_path_at_pos(int(event.x), int(event.y))[0]
+        treeiter = self.model.get_iter(treepath) if treepath else None
+        path = self.model.get_value(treeiter, 5) if treeiter else self.folder
+
+        if self.selected_paths:
+            if event.button == 1 and event.type.value_name == self.activation:
+                self.emit('item-selected', path)
+
+            elif event.button == 2:
+                self.emit('new-page', path)
+
+        if event.button == 3:
+            if not path in self.selected_paths and bool(treepath):
+                self.selection.unselect_all()
+                self.selection.select_iter(treeiter)
+
+            self.make_menu()
+            self.menu.popup(None, None, None, None, event.button, event.time)
+            return True
+
+    def __selection_changed_cb(self, selection):
+        del self.selected_paths
+        self.selected_paths = []
+        model, treepaths = self.selection.get_selected_rows()
+
+        for treepath in treepaths:
+            treeiter = model.get_iter(treepath)
+            self.selected_paths.append(model.get_value(treeiter, 5))
+
+        self.emit('selection-changed', self.selected_paths)
+
+    def __open_from_menu(self, item, new_page=False):
+        if new_page:
+            for path in self.selected_paths:
+                self.emit('new-page', path)
+
+        elif not new_page:
+            self.emit('item-selected', self.selected_paths)
+
     def __show_properties(self, item):
-        row = self.view.get_selected_row()
-        paths = [self.get_path_from_row(row)] if row else []
-        self.emit('show-properties', paths)
+        self.emit('show-properties', self.selected_paths)
 
 
 class InfoBar(Gtk.InfoBar):

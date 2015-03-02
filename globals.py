@@ -20,6 +20,7 @@
 import os
 import re
 import time
+import datetime
 import subprocess
 import ConfigParser
 from gettext import gettext as _
@@ -511,7 +512,7 @@ def get_size(paths):
         if not readable:
             return ''
 
-        patha = [paths]
+        paths = [paths]
 
     folders = []
     files = []
@@ -570,6 +571,15 @@ def get_size(paths):
     return string
 
 
+def get_simple_size(path):
+    if os.path.isfile(path):
+        return get_size(path)
+
+    else:
+        quantity = len(os.listdir(path))
+        return '%d %s' % (quantity, _('elements') if quantity != 1 else _('element'))
+
+
 def get_type(path):
     unknown = 'application/octet-stream'
     path = path.replace(' ', '\ ')
@@ -589,12 +599,50 @@ def get_type(path):
         return commands.getoutput('file --mime-type %s' % path).split(':')[1][1:]
 
 
+def get_simple_type(path):
+    _type = get_type(path)
+    simple_types = {'application/octet-stream': _('Unknown'),
+                    'inode/mount-point': _('Folder'),
+                    'inode/directory': _('Folder'),
+                    'video/x-msvideo': _('Video'),
+                    'text/plain': _('Text'),
+                    'image/x-ms-bmp': _('Image'),
+                    'application/x-gtar': _('File'),
+                    'application/zip': _('File')}
+
+    _return = simple_types.get(_type, False) or _type
+    if os.path.islink(path):
+        return _('Link')
+
+    if _return == _type:
+        if 'text' in _return:
+            _return = _('Text')
+
+        if 'image' in _return:
+            _return = _('Image')
+
+        if 'audio' in _return:
+            _return = _('Audio')
+
+    if _return == _type:
+        return _('Unknown')
+
+    return _return
+
+
 def get_created_time(path):
     return time.ctime(os.path.getctime(path))
 
 
 def get_modified_time(path):
     return time.ctime(os.path.getmtime(path))
+
+
+def get_simple_modified_time(path):
+    time = datetime.datetime.now()
+    month = ('0' + str(time.month)) if len(str(time.month)) == 1 else time.month
+    day = ('0' + str(time.day)) if len(str(time.day)) == 1 else time.day
+    return '%d/%s/%s' % (time.year, month, day)
 
 
 def get_mount_space(path):

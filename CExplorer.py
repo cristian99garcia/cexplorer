@@ -127,13 +127,7 @@ class CExplorer(Gtk.Window):
 
         if not self.place_box.entry.is_focus():
             if key == 'Enter':
-                paths = []
-
-                for path in view.view.get_selected_items():
-                    treeiter = view.model.get_iter(path)
-                    paths.append(view.get_path_from_treeiter(treeiter))
-
-                self.__item_selected(None, paths)
+                self.__item_selected(None, view.get_selected_paths())
 
             elif key == 'Backspace':
                 self.go_up()
