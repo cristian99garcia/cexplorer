@@ -33,6 +33,7 @@ from widgets import PlaceBox
 from widgets import StatusBar
 from widgets import SearchEntry
 from widgets import LateralView
+from widgets import MkdirInfoBar
 from widgets import ProgressWindow
 from widgets import PropertiesWindow
 
@@ -181,7 +182,9 @@ class CExplorer(Gtk.Window):
 
                 return
 
-        if self.place_box.entry.is_focus():
+        child = self.vbox.get_children()[0]
+        new_folder = isinstance(child, MkdirInfoBar) and child.entry.is_focus()
+        if self.place_box.entry.is_focus() or new_folder:
             return
 
         view = self.get_actual_view()
@@ -245,6 +248,7 @@ class CExplorer(Gtk.Window):
             'item-selected', lambda *args: self.notebook.update_tab_labels())
         view.connect('new-page', lambda x, p: self.new_page(p))
         view.connect('show-properties', self.show_properties_for_paths)
+        view.connect('mkdir', self.__show_mkdir_infobar)
         view.connect('copy', self.copy_from_view)
         view.connect('paste', self.paste_from_view)
 
@@ -398,6 +402,12 @@ class CExplorer(Gtk.Window):
             if os.path.isdir(paths[0]):
                 self.new_page(path)
 
+    def __show_mkdir_infobar(self, view):
+        infobar = MkdirInfoBar()
+        infobar.connect('mkdir', self.__try_mkdir)
+        self.vbox.pack_start(infobar, False, False, 0)
+        self.vbox.reorder_child(infobar, 0)
+
     def __change_view_mode(self, place_box, mode):
         self.mode = mode
         self.notebook.set_view_mode(mode)
@@ -471,6 +481,19 @@ class CExplorer(Gtk.Window):
             return
 
         os.rename(old_path, new_path)
+
+    def __try_mkdir(self, infobar, new_name):
+        path = os.path.join(self.folder, new_name)
+        readable, writable = G.get_access(self.folder)
+
+        if not writable:
+            print 'Error tring make a directory, you have not permissions for this'
+            return
+
+        try:
+            os.mkdir(path)
+        except:
+            print 'error'
 
     def __add_new_ccp_operation(self, ccpmanager, time_id):
         self.progress_window.add_operation(time_id)

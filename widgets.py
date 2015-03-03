@@ -121,6 +121,7 @@ class IconView(Gtk.ScrolledWindow):
         'new-page': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         'selection-changed': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         'show-properties': (GObject.SIGNAL_RUN_FIRST, None, [object]),
+        'mkdir': (GObject.SIGNAL_RUN_FIRST, None, []),
         'cut': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         'copy': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         'paste': (GObject.SIGNAL_RUN_FIRST, None, [str]),
@@ -128,6 +129,10 @@ class IconView(Gtk.ScrolledWindow):
 
     def __init__(self, folder):
         Gtk.ScrolledWindow.__init__(self)
+
+        # FIXME: Cuando se abre una nueva pestaña, y se regresa a la inicial,
+        #        se pierde la selección anteriror, hay que guardar los objetos
+        #        seleccionados y volverlos a seleccionar.
 
         self.history = []
         self.folders = []
@@ -226,6 +231,7 @@ class IconView(Gtk.ScrolledWindow):
 
         item = Gtk.MenuItem(_('Create a folder'))
         item.set_sensitive(writable)
+        item.connect('activate', self.mkdir)
         self.menu.append(item)
 
         self.menu.append(Gtk.SeparatorMenuItem())
@@ -295,6 +301,9 @@ class IconView(Gtk.ScrolledWindow):
                 break
 
         self.emit('paste', self.folder)
+
+    def mkdir(self, *args):
+        self.emit('mkdir')
 
     def select_all(self):
         self.select_all()
@@ -391,6 +400,7 @@ class ListView(Gtk.ScrolledWindow):
         'new-page': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         'selection-changed': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         'show-properties': (GObject.SIGNAL_RUN_FIRST, None, [object]),
+        'mkdir': (GObject.SIGNAL_RUN_FIRST, None, []),
         'cut': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         'copy': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         'paste': (GObject.SIGNAL_RUN_FIRST, None, [str]),
@@ -514,6 +524,7 @@ class ListView(Gtk.ScrolledWindow):
 
         item = Gtk.MenuItem(_('Create a folder'))
         item.set_sensitive(writable)
+        item.connect('activate', self.mkdir)
         self.menu.append(item)
 
         self.menu.append(Gtk.SeparatorMenuItem())
@@ -569,6 +580,9 @@ class ListView(Gtk.ScrolledWindow):
         self.menu.append(item)
 
         self.menu.show_all()
+
+    def mkdir(self, *args):
+        self.emit('mkdir')
 
     def __show_icons(self):
         self.model.clear()
@@ -673,6 +687,47 @@ class InfoBar(Gtk.InfoBar):
 
     def __hide(self, widget, response=None):
         GObject.idle_add(self.hide)
+
+
+class MkdirInfoBar(Gtk.InfoBar):
+
+    __gsignals__ = {
+        'mkdir': (GObject.SIGNAL_RUN_FIRST, None, [str])
+        }
+
+    def __init__(self):
+        Gtk.InfoBar.__init__(self)
+
+        self.set_show_close_button(True)
+        self.set_message_type(Gtk.MessageType.QUESTION)
+
+        hbox = self.get_content_area()
+        vbox = Gtk.VBox()
+
+        label = Gtk.Label(_('Select a name of the new dir'))
+        label.modify_font(Pango.FontDescription('Bold'))
+        vbox.pack_start(label, False, False, 0)
+
+        self.entry = Gtk.Entry()
+        self.entry.set_text(_('New folder'))
+        self.entry.set_placeholder_text(_('Select a name for the new folder'))
+        self.entry.connect('activate', self.__mkdir)
+        vbox.pack_start(self.entry, False, False, 0)
+
+        self.connect('response', lambda _self, response: self.hide())
+        self.connect('realize', self.__realize_cb)
+
+        hbox.add(vbox)
+        self.show_all()
+
+    def __mkdir(self, entry):
+        if entry.get_text():
+            self.emit('mkdir', entry.get_text())
+
+        self.destroy()
+
+    def __realize_cb(self, widget):
+        self.entry.grab_focus()
 
 
 class LateralView(Gtk.ScrolledWindow):
