@@ -386,7 +386,7 @@ class CCPManager(GObject.GObject):
             while operation['active']:
                 path = files[actual]
                 actual += 1
-                readable, writable = G.get_access(path)
+                readable, writable = get_access(path)
                 if (not readable and action == COPY) or \
                     (not writable and action == CUT):
 
@@ -411,7 +411,7 @@ class CCPManager(GObject.GObject):
 
             self.emit('end', time_id)
 
-        readable, writable = G.get_access(operation[2])
+        readable, writable = get_access(operation[2])
         if not writable:
             #self.emit('error', 0)
             return
@@ -482,6 +482,126 @@ def get_pixbuf_from_path(path, size=None):
             pixbuf = icon_theme.load_icon(icon, size, 0)
 
     return pixbuf
+
+
+def make_menu(paths, folder, data):
+    all_are_dirs = True
+    readable = True
+    writable = True
+    if paths:
+        for x in paths:
+            r, w = get_access(x)
+            readable = readable and r
+            writable = writable and w
+
+    else:
+        readable, writable = get_access(folder)
+
+    for x in paths:
+        if not os.path.isdir(x):
+            all_are_dirs = False
+            break
+
+    menu = Gtk.Menu()
+
+    if paths and (paths[0] != folder or len(paths) > 1):
+        item = Gtk.MenuItem(_('Open'))
+        item.set_sensitive(readable)
+        item.connect('activate', data['open-from-menu'])
+        menu.append(item)
+
+        if all_are_dirs:
+            item = Gtk.MenuItem(_('Open in new tab'))
+            item.set_sensitive(readable)
+            item.connect('activate', data['open-from-menu'], True)
+            menu.append(item)
+
+        menu.append(Gtk.SeparatorMenuItem())
+
+    item = Gtk.MenuItem(_('Create a folder'))
+    item.set_sensitive(writable)
+    item.connect('activate', data['mkdir'])
+    menu.append(item)
+
+    menu.append(Gtk.SeparatorMenuItem())
+
+    item = Gtk.MenuItem(_('Cut'))  # Copy path to clipboard
+    item.set_sensitive(writable)
+    item.connect('activate', data['cut'])
+    menu.append(item)
+
+    item = Gtk.MenuItem(_('Copy'))  # Copy path to clipboard
+    item.set_sensitive(readable)
+    item.connect('activate', data['copy'])
+    menu.append(item)
+
+    paste = _('Paste')
+    """if self.selected_paths and \
+        os.path.isdir(self.selected_paths[0]) and \
+        self.selected_paths[0] == self.folder and \
+        len(self.selected_paths) > 1 else _('Paste on this folder')
+    """
+
+    item = Gtk.MenuItem(paste)
+    item.set_sensitive(writable)  # And clipboard has paths
+    item.connect('activate', data['paste'])
+    menu.append(item)
+
+    if writable and paths[0] != folder:
+        item = Gtk.MenuItem(_('Rename'))
+        item.connect('activate', data['rename'])
+        menu.append(item)
+
+    menu.append(Gtk.SeparatorMenuItem())
+
+    item = Gtk.MenuItem(_('Sort items'))
+    submenu = Gtk.Menu()
+    item.set_submenu(submenu)
+    menu.append(item)
+
+    menu.append(Gtk.SeparatorMenuItem())
+
+    item_name = Gtk.RadioMenuItem(_('By name'))
+    item_name.set_active(data['sort'] == SORT_BY_NAME)
+    item_name.connect('activate', data['sort-changed'], SORT_BY_NAME)
+    submenu.append(item_name)
+
+    item_size = Gtk.RadioMenuItem(_('By size'), group=item_name)
+    item_size.set_active(data['sort'] == SORT_BY_SIZE)
+    item_size.connect('activate', data['sort-changed'], SORT_BY_SIZE)
+    submenu.append(item_size)
+
+    submenu.append(Gtk.SeparatorMenuItem())
+
+    item = Gtk.CheckMenuItem(_('Reverse'))
+    item.set_active(data['reverse'])
+    item.connect('activate', data['reverse-changed'])
+    submenu.append(item)
+
+    item = Gtk.MenuItem(_('Properties'))
+    item.connect('activate', data['show-properties'])
+    menu.append(item)
+
+    if readable:
+        menu.append(Gtk.SeparatorMenuItem())
+
+        item = Gtk.MenuItem(_('Compress'))
+        item.connect('activate', data['compress'])
+        menu.append(item)
+
+    if writable:
+        menu.append(Gtk.SeparatorMenuItem())
+
+        item = Gtk.MenuItem(_('Move to trash'))
+        item.connect('activate', data['move-to-trash'])
+        menu.append(item)
+
+        item = Gtk.MenuItem(_('Remove'))
+        item.connect('activate', data['remove'])
+        menu.append(item)
+
+    menu.show_all()
+    return menu
 
 
 def get_parent_directory(folder):

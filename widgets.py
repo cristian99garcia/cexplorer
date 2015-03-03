@@ -201,91 +201,22 @@ class IconView(Gtk.ScrolledWindow):
             GObject.idle_add(self.__show_icons)
 
     def make_menu(self, paths):
-        all_are_dirs = True
-        readable, writable = G.get_access(paths[0])
-        for x in paths[1:]:
-            _r, _w = G.get_access(x)
-            readable = readable and _r
-            writable = writable and _w
+        data = {'sort': self.sort,
+                'reverse': self.reverse,
+                'open-from-menu': self.__open_from_menu,
+                'mkdir': self.mkdir,
+                'cut': self.cut,
+                'copy': self.copy,
+                'paste': self.paste,
+                'rename': self.__rename,
+                'sort-changed': self.__sort_changed,
+                'reverse-changed': self.__reverse_changed,
+                'show-properties': self.__show_properties,
+                'compress': self.__compress,
+                'move-to-trash': self.__move_to_trash,
+                'remove': self.__remove}
 
-        for x in paths:
-            if not os.path.isdir(x):
-                all_are_dirs = False
-                break
-
-        self.menu = Gtk.Menu()
-
-        if paths[0] != self.folder or len(paths) > 1:
-            item = Gtk.MenuItem(_('Open'))
-            item.set_sensitive(readable)
-            item.connect('activate', self.__open_from_menu)
-            self.menu.append(item)
-
-            if all_are_dirs:
-                item = Gtk.MenuItem(_('Open in new tab'))
-                item.set_sensitive(readable)
-                item.connect('activate', self.__open_from_menu, True)
-                self.menu.append(item)
-
-            self.menu.append(Gtk.SeparatorMenuItem())
-
-        item = Gtk.MenuItem(_('Create a folder'))
-        item.set_sensitive(writable)
-        item.connect('activate', self.mkdir)
-        self.menu.append(item)
-
-        self.menu.append(Gtk.SeparatorMenuItem())
-
-        item = Gtk.MenuItem(_('Cut'))  # Copy path to clipboard
-        item.set_sensitive(writable)
-        item.connect('activate', self.cut)
-        self.menu.append(item)
-
-        item = Gtk.MenuItem(_('Copy'))  # Copy path to clipboard
-        item.set_sensitive(readable)
-        item.connect('activate', self.copy)
-        self.menu.append(item)
-
-        paste = _('Paste') if os.path.isdir(paths[0]) and \
-            paths[0] == self.folder and \
-            len(paths) > 1 else _('Paste on this folder')
-
-        item = Gtk.MenuItem(paste)
-        item.set_sensitive(writable)  # And clipboard has paths
-        item.connect('activate', self.paste)
-        self.menu.append(item)
-
-        self.menu.append(Gtk.SeparatorMenuItem())
-
-        item = Gtk.MenuItem(_('Sort items'))
-        menu = Gtk.Menu()
-        item.set_submenu(menu)
-        self.menu.append(item)
-
-        self.menu.append(Gtk.SeparatorMenuItem())
-
-        item_name = Gtk.RadioMenuItem(_('By name'))
-        item_name.set_active(self.sort == G.SORT_BY_NAME)
-        item_name.connect('activate', self.__sort_changed, G.SORT_BY_NAME)
-        menu.append(item_name)
-
-        item_size = Gtk.RadioMenuItem(_('By size'), group=item_name)
-        item_size.set_active(self.sort == G.SORT_BY_SIZE)
-        item_size.connect('activate', self.__sort_changed, G.SORT_BY_SIZE)
-        menu.append(item_size)
-
-        menu.append(Gtk.SeparatorMenuItem())
-
-        item = Gtk.CheckMenuItem(_('Reverse'))
-        item.set_active(self.reverse)
-        item.connect('activate', self.__reverse_changed)
-        menu.append(item)
-
-        item = Gtk.MenuItem(_('Properties'))
-        item.connect('activate', self.__show_properties)
-        self.menu.append(item)
-
-        self.menu.show_all()
+        self.menu = G.make_menu(paths, self.folder, data)
 
     def cut(self, *args):
         self.emit('cut', self.get_paths())
@@ -325,6 +256,18 @@ class IconView(Gtk.ScrolledWindow):
                 self.files.append(path)
 
         GObject.idle_add(self.__show_icons)
+
+    def __rename(self, *args):
+        pass
+
+    def __compress(self, *args):
+        pass
+
+    def __move_to_trash(self, *args):
+        pass
+
+    def __remove(self, *args):
+        pass
 
     def __selection_changed(self, view):
         self.emit('selection-changed', self.get_selected_paths())
@@ -486,103 +429,52 @@ class ListView(Gtk.ScrolledWindow):
         GObject.idle_add(self.__show_icons)
 
     def make_menu(self):
-        all_are_dirs = True
-        readable = True
-        writable = True
-        if self.selected_paths:
-            for x in self.selected_paths:
-                r, w = G.get_access(x)
-                readable = readable and r
-                writable = writable and w
+        data = {'sort': self.sort,
+                'reverse': self.reverse,
+                'open-from-menu': self.__open_from_menu,
+                'mkdir': self.mkdir,
+                'cut': self.cut,
+                'copy': self.copy,
+                'paste': self.paste,
+                'rename': self.__rename,
+                'sort-changed': self.__sort_changed,
+                'reverse-changed': self.__reverse_changed,
+                'show-properties': self.__show_properties,
+                'compress': self.__compress,
+                'move-to-trash': self.__move_to_trash,
+                'remove': self.__remove}
 
-        else:
-            readable, writable = G.get_access(self.folder)
+        self.menu = G.make_menu(self.selected_paths, self.folder, data)
 
-        for x in self.selected_paths:
-            if not os.path.isdir(x):
-                all_are_dirs = False
-                break
+    def cut(self, *args):
+        pass
 
-        self.menu = Gtk.Menu()
+    def copy(self, *args):
+        pass
 
-        if self.selected_paths and (
-            self.selected_paths[0] != self.folder or len(
-                self.selected_paths) > 1):
-
-            item = Gtk.MenuItem(_('Open'))
-            item.set_sensitive(readable)
-            item.connect('activate', self.__open_from_menu)
-            self.menu.append(item)
-
-            if all_are_dirs:
-                item = Gtk.MenuItem(_('Open in new tab'))
-                item.set_sensitive(readable)
-                item.connect('activate', self.__open_from_menu, True)
-                self.menu.append(item)
-
-            self.menu.append(Gtk.SeparatorMenuItem())
-
-        item = Gtk.MenuItem(_('Create a folder'))
-        item.set_sensitive(writable)
-        item.connect('activate', self.mkdir)
-        self.menu.append(item)
-
-        self.menu.append(Gtk.SeparatorMenuItem())
-
-        item = Gtk.MenuItem(_('Cut'))  # Copy path to clipboard
-        item.set_sensitive(writable)
-        #item.connect('activate', self.cut)
-        self.menu.append(item)
-
-        item = Gtk.MenuItem(_('Copy'))  # Copy path to clipboard
-        item.set_sensitive(readable)
-        #item.connect('activate', self.copy)
-        self.menu.append(item)
-
-        paste = _('Paste') if self.selected_paths and \
-            os.path.isdir(self.selected_paths[0]) and \
-            self.selected_paths[0] == self.folder and \
-            len(self.selected_paths) > 1 else _('Paste on this folder')
-
-        item = Gtk.MenuItem(paste)
-        item.set_sensitive(writable)  # And clipboard has paths
-        #item.connect('activate', self.paste)
-        self.menu.append(item)
-
-        self.menu.append(Gtk.SeparatorMenuItem())
-
-        item = Gtk.MenuItem(_('Sort items'))
-        menu = Gtk.Menu()
-        item.set_submenu(menu)
-        self.menu.append(item)
-
-        self.menu.append(Gtk.SeparatorMenuItem())
-
-        item_name = Gtk.RadioMenuItem(_('By name'))
-        item_name.set_active(self.sort == G.SORT_BY_NAME)
-        #item_name.connect('activate', self.__sort_changed, G.SORT_BY_NAME)
-        menu.append(item_name)
-
-        item_size = Gtk.RadioMenuItem(_('By size'), group=item_name)
-        item_size.set_active(self.sort == G.SORT_BY_SIZE)
-        #item_size.connect('activate', self.__sort_changed, G.SORT_BY_SIZE)
-        menu.append(item_size)
-
-        menu.append(Gtk.SeparatorMenuItem())
-
-        item = Gtk.CheckMenuItem(_('Reverse'))
-        item.set_active(self.reverse)
-        #item.connect('activate', self.__reverse_changed)
-        menu.append(item)
-
-        item = Gtk.MenuItem(_('Properties'))
-        item.connect('activate', self.__show_properties)
-        self.menu.append(item)
-
-        self.menu.show_all()
+    def paste(self, *args):
+        pass
 
     def mkdir(self, *args):
         self.emit('mkdir')
+
+    def __rename(self, *args):
+        pass
+
+    def __sort_changed(self, *args):
+        pass
+
+    def __reverse_changed(self, *args):
+        pass
+
+    def __compress(self, *args):
+        pass
+
+    def __move_to_trash(self, *args):
+        pass
+
+    def __remove(self, *args):
+        pass
 
     def __show_icons(self):
         self.model.clear()
