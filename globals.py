@@ -576,7 +576,7 @@ def get_size(paths):
             size_str = get_size_unit(size)
             string += ' ' if string else ''
             string += '%d %s %s' % (
-                len(files), 'files selecteds, weight', size, size_str)
+                len(files), 'files selecteds, weight', size_str)
 
         else:
             size_str = get_size_unit(size)
