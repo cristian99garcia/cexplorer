@@ -18,6 +18,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 import os
+import time
 import globals as G
 
 from gi.repository import Gtk
@@ -32,6 +33,7 @@ from widgets import PlaceBox
 from widgets import StatusBar
 from widgets import SearchEntry
 from widgets import LateralView
+from widgets import ProgressWindow
 from widgets import PropertiesWindow
 
 
@@ -48,7 +50,9 @@ class CExplorer(Gtk.Window):
         self.icon_size = G.DEFAULT_ICON_SIZE
         self.pressed_keys = []
         self.shortcut = ''
-        self.clipborad = (None, [])  # (Action('Copy/Cut'), [file1, file2 ...])
+        self.clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        self.ccpmanager = G.CCPManager()
+        self.progress_window = ProgressWindow(self.ccpmanager)
         self.actions = None
 
         self.vbox = Gtk.VBox()
@@ -102,6 +106,7 @@ class CExplorer(Gtk.Window):
         self.connect('realize', self.__realize_cb)
         self.connect('key-press-event', self.__key_press_event_cb)
         self.connect('key-release-event', self.__key_release_event_cb)
+        self.ccpmanager.connect('start', self.__add_new_ccp_operation)
 
         self.make_actions()
 
@@ -154,9 +159,9 @@ class CExplorer(Gtk.Window):
                         'Ctrl+n': (self.new_window, ()),
                         'Ctrl++': (self.statusbar.aument, ()),
                         'Ctrl+-': (self.statusbar.disminuit, ()),
-                        'Ctrl+x': (self._cut, ()),
-                        'Ctrl+c': (self._copy, ()),
-                        'Ctrl+v': (self._paste, ())}
+                        'Ctrl+x': (self.cut, ()),
+                        'Ctrl+c': (self.copy, ()),
+                        'Ctrl+v': (self.paste, ())}
 
     def check_shortcut(self):
         if self.shortcut in self.actions:
@@ -165,47 +170,6 @@ class CExplorer(Gtk.Window):
 
         else:
             self.search_text()
-
-    def _cut(self):
-        view = self.get_actual_view()
-        self.clipborad = (G.CUT, view.get_selected_paths())
-
-    def _copy(self):
-        view = self.get_actual_view()
-        self.clipborad = (G.COPY, view.get_selected_paths())
-
-    def _paste(self):
-        # FIXME: cuando se corta y pega un archivo, el clipboard pasa a copiar
-        #        desde donde se pegó
-        action = self.clipborad[0]
-        paths = self.clipborad[1]
-        directory = self.get_actual_view().folder
-        readable, writable = G.get_access(directory)
-
-        if not self.clipborad or not paths:
-            return
-
-        if not writable:
-            # Mostrar mensaje de error
-            return
-
-        for path in paths:
-            readable, writable = G.get_access(path)
-
-            if not writable:
-                # Mostrar mensaje de error
-                return
-
-        m = G.CCPManager()
-        m.add_action(action, paths, directory)
-        # FIXME: Crear un manager en globals.py que se encargue de cortar,
-        #        copiar y pegar archivos, que herede de GObject.GObject y que
-        #        emita una señal al haber avanzado en su tarea(para poder
-        #        representarlo en un GtkInfoBar con un GtkLevelBar). Debe poder
-        #        ser cancelable y si es posible, mostrar estádisticas al estilo
-        #        windows. Esta clase debería encargarse de veríficar los
-        #        permisos de los archivos a cortar/copiar, el directorio en el
-        #        que se encuentrar y el directorio a pegar.
 
     def search_text(self):
         text = self.shortcut
@@ -281,29 +245,68 @@ class CExplorer(Gtk.Window):
             'item-selected', lambda *args: self.notebook.update_tab_labels())
         view.connect('new-page', lambda x, p: self.new_page(p))
         view.connect('show-properties', self.show_properties_for_paths)
-        view.connect('copy', self.copy)
-        view.connect('paste', self.paste)
+        view.connect('copy', self.copy_from_view)
+        view.connect('paste', self.paste_from_view)
 
-    def copy(self, view, paths):
-        print '__copy__'
-        #self.clipborad = paths
+    def copy_from_view(self, view, paths):
+        text = 'COPY\n'
+        for path in paths:
+            text += path + '\n'
 
-    def paste(self, view, folder):
-        print '__paste__'
-        self.scan_folder.can_scan = False
-        readable, writable = G.get_access(folder)
+        self.clipboard.set_text(text, -1)
 
-        if not readable:
-            #  Agregar advertencia
+    def paste_from_view(self, view, folder):
+        self.paste()
+
+    def cut(self):
+        view = self.get_actual_view()
+        self.clipborad = (G.CUT, view.get_selected_paths())
+
+    def copy(self):
+        view = self.get_actual_view()
+        self.clipborad = (G.COPY, view.get_selected_paths())
+
+    def paste(self, destination=None):
+        text = self.clipboard.wait_for_text()
+        if not text:
             return
 
-        for path in self.clipborad:
-            print 101010101, path
+        lines = text.splitlines()
 
-            _r, _w = G.get_access(path)
-            if not _r:
-                #  Agregar advertencia
-                continue
+        if not destination:
+            destination = self.folder
+
+        if lines[0] == 'COPY':
+            action = G.COPY
+
+        elif lines[0] == 'CUT':
+            action = G.CUT
+
+        else:
+            action = G.COPY
+
+        paths = []
+        time_id = time.time()
+
+        for line in lines:
+            if not '/' in line:  # The text coppied aren't files
+                return
+
+            if path.startswith('file:///'):
+                line = line[7:]  # len('file://') = 7
+
+            paths.append(line)
+
+        m = G.CCPManager()
+        m.add_action(action, paths, directory, time_id)
+        # FIXME: Crear un manager en globals.py que se encargue de cortar,
+        #        copiar y pegar archivos, que herede de GObject.GObject y que
+        #        emita una señal al haber avanzado en su tarea(para poder
+        #        representarlo en un GtkInfoBar con un GtkLevelBar). Debe poder
+        #        ser cancelable y si es posible, mostrar estádisticas al estilo
+        #        windows. Esta clase debería encargarse de veríficar los
+        #        permisos de los archivos a cortar/copiar, el directorio en el
+        #        que se encuentrar y el directorio a pegar.
 
     def show_properties_for_paths(self, view, paths):
         if not paths:
@@ -468,6 +471,9 @@ class CExplorer(Gtk.Window):
             return
 
         os.rename(old_path, new_path)
+
+    def __add_new_ccp_operation(self, ccpmanager, time_id):
+        self.progress_window.add_operation(time_id)
 
     def _exit(self, *args):
         #  Check actuals process

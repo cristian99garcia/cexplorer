@@ -20,6 +20,7 @@
 import os
 import re
 import time
+import thread
 import datetime
 import subprocess
 import ConfigParser
@@ -350,68 +351,86 @@ class CCPManager(GObject.GObject):
     # Cut, Copy and Paste
 
     __gsignals__ = {
-        'error': (GObject.SIGNAL_RUN_FIRST, None, [])
+        'error': (GObject.SIGNAL_RUN_FIRST, None, [int]),
+        'warning': (GObject.SIGNAL_RUN_FIRST, None, [str]),
+        'start': (GObject.SIGNAL_RUN_FIRST, None, [float]),
+        'progress-changed': (GObject.SIGNAL_RUN_FIRST, None, [float]),
+        'end': (GObject.SIGNAL_RUN_FIRST, None, [float]),
         }
 
     def __init__(self):
         GObject.GObject.__init__(self)
 
-    def __start_new_operation(self, command):
-        def start():
-            os.system(command)
+        self.operations = {}
+        # Operations structur:
+        #    {time_id: {'action': int,
+        #               'files': list,
+        #               'destination': str,
+        #               'active': bool,
+        #               'total-size': int,
+        #               'progress': int}}
 
-        import thread
+    def __start_new_operation(self, time_id):
+        operation = self.operations[time_id]
+
+        def start():
+            self.emit('start', time_id)
+
+            actual = 0
+            loop_time = 1
+            action = operation['action']
+            files = operation['files']
+            operation['total-size'] = get_total_size(files)
+            operation['progress'] = 0
+
+            while operation['active']:
+                path = files[actual]
+                actual += 1
+                readable, writable = G.get_access(path)
+                if (not readable and action == COPY) or \
+                    (not writable and action == CUT):
+
+                    #self.emit('error', 1)
+                    #return
+                    continue
+
+                if operation['action'] == COPY:
+                    command = 'cp -r %s' % path
+
+                elif operation['action'] == CUT:
+                    command = 'mv -r %s' % path
+
+                os.system(command)
+
+                if actual == len(files):
+                    operation[active] = False
+
+                if actual % 2:
+                    operacion['progress'] = get_total_size(operacion['destination'])
+                    self.emit('progress-changed', time_id)
+
+            self.emit('end', time_id)
+
+        readable, writable = G.get_access(operation[2])
+        if not writable:
+            #self.emit('error', 0)
+            return
+
         thread.start_new_thread(start, ())
 
-    def add_action(self, action, files, directory):
-        for path in files:
-            dir1 = clear_path(get_parent_directory(path))
-            dir2 = clear_path(directory)
-            old_path = path
-            is_directory = os.path.isdir(path)
+    def add_action(self, action, files, destination, time_id):
+        self.operations[time_id] = {'action': action,
+                                    'files': files,
+                                    'destination': destination,
+                                    'active': True}
 
-            if dir1 == dir2:
-                if action == CUT:
-                    self.emit('error')  # Descript or identifier the error
-                    return
+        GObject.idle_add(self.__start_new_operation, time_id)
 
-                copy = '-%s' % _('copy')
-                another_copy = '-%s' % 'another copy'
-                if is_directory:
-                    path = path[:-1]
+    def cancel_operation(self, time_id):
+        self.operations[time_id]['active'] = False
 
-                path += (copy + '/') if is_directory else copy
-
-                if os.path.exists(path):
-                    path = path[:len(copy)]
-                    path += another_copy
-
-                if os.path.exists(path):
-                    path = path[:len(another_copy)]
-                    dirname = get_parent_directory(path)
-                    filename = path.split('/')[-1]
-                    path = os.path.join(dirname, '2° %s' % _('copy'))
-
-                if os.path.exists(path):
-                    name = path.split('/')[-1]
-                    number = ''
-
-                    for x in re.findall('[0-9]', name):
-                        number += x
-
-                    number = int(number)
-                    number += 1
-
-                    name = '%s - %d° %s' % (name, number, _('copy'))
-                    path = os.path.join(get_parent_directory(path), name)
-
-            if is_directory and action == COPY:
-                command = 'cp -r %s %s' % (old_path, path)
-
-            else:
-                command = '%s %s %s' % (action, old_path, path)
-
-            self.__start_new_operation(command)
+    def __getitem__(self, time_id):
+        return self.operations[time_id]
 
 
 def get_pixbuf_from_path(path, size=None):
@@ -596,6 +615,30 @@ def get_simple_size(path):
         quantity = len(os.listdir(path))
         return '%d %s' % (
             quantity, _('elements') if quantity != 1 else _('element'))
+
+
+def get_total_size(paths=[]):
+    total_size = 0
+    folders = []
+    files = []
+    for path in paths:
+        if os.path.isdir(path):
+            folders.append(path)
+
+        elif os.path.isfile(path):
+            files.append(path)
+
+    for path in files:
+        total_size += os.path.getsize(path)
+
+    for path in folders:
+        for dirpath, firnames, filenames in os.walk(path):
+            for name in filenames:
+                path = os.path.join(dirpath, name)
+                if os.path.exists(path):
+                    total_size += os.path.getsize(path)
+
+    return total_size
 
 
 def get_type(path):

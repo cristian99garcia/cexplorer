@@ -1625,3 +1625,55 @@ class PropertiesWindow(Gtk.Dialog):
 
     def __rename_file(self, entry):
         self.emit('rename-file', self.old_path, entry.get_text())
+
+
+class ProgressWindow(Gtk.Window):
+
+    def __init__(self, ccpmanager):
+        Gtk.Window.__init__(self)
+
+        self.operations = {}
+        self.box = Gtk.ListBox()
+        self.box.set_selection_mode(Gtk.SelectionMode.NONE)
+
+        self.manager = ccpmanager
+        self.manager.connect('progress-changed', self.__progress_changed)
+        self.manager.connect('end', self.__operation_ended)
+
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.add(self.box)
+        self.add(scrolled)
+
+    def add_operation(self, time_id):
+        min_value = 0
+        max_value = self.maganer[time_id]['total-size']
+        value = self.manager[time_id]['progress']
+
+        row = Gtk.ListBoxRow()
+        box = Gtk.HBox()
+        hbox.set_spacing(5)
+
+        levelbar = Gtk.LevelBar()
+        levelbar.set_min_value(min_value)
+        levelbar.set_max_value(max_value)
+        levelbar.set_value(value)
+
+        button = Gtk.ToolButton.new_from_stock(Gtk.STOCK_CANCEL)
+
+        hbox.pack_start(levelbar, True, True, 0)
+        hbox.pack_start(button, False, False, 0)
+        row.add(hbox)
+
+        self.listbox.add(row)
+        self.listbox.show_all()
+
+        self.operations[time_id] = {'levelbar': levelbar,
+                                    'button': button,
+                                    'row': row}
+
+    def __progress_changed(self, manager, time_id):
+        progress = self.manager[time_id]['progress']
+        self.operations[time_id]['levelbar'].set_value(progress)
+
+    def __operation_ended(self, manager, time_id):
+        self.box.remove(self.operations[time_id]['row'])
