@@ -132,7 +132,7 @@ class CExplorer(Gtk.Window):
             self.infobar.show_all()
 
         elif not readable:
-            self.infobar.set_msg(G.ERROR_NOT_PERMISSIONS_READABLE, folder)
+            self.infobar.set_msg(G.ERROR_NOT_READABLE, folder)
             self.infobar.show_all()
 
         GObject.idle_add(self.update_widgets, force=False)

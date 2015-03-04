@@ -677,7 +677,8 @@ def get_size(paths):
             files.append(x)
 
     for x in folders:
-        quantity += len(os.listdir(x))
+        readable, writable = get_access(x)
+        quantity += len(os.listdir(x)) if readable else 0
 
     for x in files:
         size += os.path.getsize(x)
@@ -729,13 +730,18 @@ def get_size(paths):
 
 
 def get_simple_size(path):
+    readable, writable = get_access(path)
     if os.path.isfile(path):
         return get_size(path)
 
     else:
-        quantity = len(os.listdir(path))
-        return '%d %s' % (
-            quantity, _('elements') if quantity != 1 else _('element'))
+        if readable:
+            quantity = len(os.listdir(path))
+            return '%d %s' % (
+                quantity, _('elements') if quantity != 1 else _('element'))
+
+        else:
+            return _('Not readable')
 
 
 def get_total_size(paths=[]):
