@@ -333,6 +333,7 @@ class CExplorer(Gtk.Window):
             self.lateral_view.select_item(self.folder)
 
         self.scan_folder.set_folder(view.folder)
+        self.scan_folder.scan(force=True)
         self.notebook.update_tab_labels()
 
     def update_icons(self, scan_folder, paths):
