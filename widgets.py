@@ -162,7 +162,7 @@ class View(Gtk.ScrolledWindow):
         if icon_size != self.icon_size:
             GObject.idle_add(self.model.clear)
             self.icon_size = icon_size
-            GObject.idle_add(self.__show_icons)
+            GObject.idle_add(self._show_icons)
 
     def mkdir(self, *args):
         self.emit('mkdir')
@@ -244,7 +244,7 @@ class View(Gtk.ScrolledWindow):
 
         col_name = Gtk.TreeViewColumn(title=_('Name'))
         col_name.set_expand(True)
-        #col_name.set_sizing(Gtk.TreeViewColumnSizing.AUTOSIZE)
+        col_name.set_sizing(Gtk.TreeViewColumnSizing.AUTOSIZE)
 
         cell_icon = Gtk.CellRendererPixbuf()
         cell_text = Gtk.CellRendererText()
