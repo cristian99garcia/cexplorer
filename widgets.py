@@ -1271,6 +1271,7 @@ class PlaceBox(Gtk.HBox):
         else:
             self.buttonbox.hide()
             self.entry.show()
+            GObject.idle_add(self.entry.grab_focus)
 
     def change_view_mode(self, button, mode):
         if button.get_active():
