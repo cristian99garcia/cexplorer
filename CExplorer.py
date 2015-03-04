@@ -304,14 +304,6 @@ class CExplorer(Gtk.Window):
 
         m = G.CCPManager()
         m.add_action(action, paths, directory, time_id)
-        # FIXME: Crear un manager en globals.py que se encargue de cortar,
-        #        copiar y pegar archivos, que herede de GObject.GObject y que
-        #        emita una señal al haber avanzado en su tarea(para poder
-        #        representarlo en un GtkInfoBar con un GtkLevelBar). Debe poder
-        #        ser cancelable y si es posible, mostrar estádisticas al estilo
-        #        windows. Esta clase debería encargarse de veríficar los
-        #        permisos de los archivos a cortar/copiar, el directorio en el
-        #        que se encuentrar y el directorio a pegar.
 
     def show_properties_for_paths(self, view, paths):
         if not paths:
@@ -326,10 +318,8 @@ class CExplorer(Gtk.Window):
         # FIXME: hay que fijarse la posición actual con respecto al historial
         #        para poder hacer set_sensitive
 
-        update_icons = False
         if not isinstance(view, View) and force:
             view = self.get_actual_view()
-            update_icons = True
 
         self.view = view
         self.other_view = True
@@ -343,7 +333,6 @@ class CExplorer(Gtk.Window):
             self.lateral_view.select_item(self.folder)
 
         self.scan_folder.set_folder(view.folder)
-        self.scan_folder.scan(force=update_icons)
         self.notebook.update_tab_labels()
 
     def update_icons(self, scan_folder, paths):

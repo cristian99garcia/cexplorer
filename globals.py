@@ -323,7 +323,7 @@ class ScanFolder(GObject.GObject):
             return
 
         for name in _files:
-            filename = os.path.join(self.folder, name)
+            filename = clear_path(os.path.join(self.folder, name))
 
             if (not name.startswith('.') and not name.endswith('~')) or \
                     self.show_hidden_files:
