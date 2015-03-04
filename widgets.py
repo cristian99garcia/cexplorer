@@ -114,7 +114,7 @@ class SearchEntry(Gtk.Window):
             self.emit('select')
 
 
-class IconView(Gtk.ScrolledWindow):
+class View(Gtk.ScrolledWindow):
 
     __gsignals__ = {
         'item-selected': (GObject.SIGNAL_RUN_FIRST, None, [object]),
@@ -127,12 +127,8 @@ class IconView(Gtk.ScrolledWindow):
         'paste': (GObject.SIGNAL_RUN_FIRST, None, [str]),
         }
 
-    def __init__(self, folder):
+    def __init__(self, view_mode, folder):
         Gtk.ScrolledWindow.__init__(self)
-
-        # FIXME: Cuando se abre una nueva pestaña, y se regresa a la inicial,
-        #        se pierde la selección anteriror, hay que guardar los objetos
-        #        seleccionados y volverlos a seleccionar.
 
         self.history = []
         self.folders = []
@@ -140,38 +136,16 @@ class IconView(Gtk.ScrolledWindow):
         self.folder = folder
         self.icon_size = G.DEFAULT_ICON_SIZE
         self.dirs = G.Dirs()
-        self.model = Gtk.ListStore(str, GdkPixbuf.Pixbuf)
-        self.view = Gtk.IconView()
         self.menu = None
         self.sort = G.SORT_BY_NAME
         self.reverse = False
         self.activation = G.ACTIVATION_WITH_TWO_CLICKS
 
-        self.view.set_text_column(0)
-        self.view.set_pixbuf_column(1)
-        self.view.set_can_focus(True)
-        self.view.set_model(self.model)
-        self.view.set_item_padding(0)
-        self.view.set_selection_mode(Gtk.SelectionMode.MULTIPLE)
+        if view_mode == G.MODE_ICONS:
+            self.__make_icon_view()
 
-        self.view.connect('button-press-event', self.__button_press_event_cb)
-        self.view.connect('selection-changed', self.__selection_changed)
-
-        self.add(self.view)
-
-    def get_selected_paths(self):
-        selected = []
-        for path in self.view.get_selected_items():
-            treeiter = self.model.get_iter(path)
-            name = self.model.get_value(treeiter, 0)
-            directory = os.path.join(self.folder, name)
-
-            if name == G.HOME_NAME:
-                directory = G.HOME_DIR
-
-            selected.append(G.clear_path(directory))
-
-        return selected
+        elif view_mode == G.MODE_LIST:
+            self.__make_list_view()
 
     def get_path_from_treeiter(self, treeiter):
         name = self.model.get_value(treeiter, 0)
@@ -180,25 +154,31 @@ class IconView(Gtk.ScrolledWindow):
         if name == G.HOME_NAME:
             directory = G.HOME_DIR
 
-        directory = directory.replace('//', '/')
-        directory = directory.replace('//', '/')
-
-        return directory
-
-    def get_paths(self):
-        paths = []
-
-        for path in self.view.get_selected_items():
-            treeiter = self.model.get_iter(path)
-            paths.append(self.get_path_from_treeiter(treeiter))
-
-        return paths
+        return G.clear_path(directory)
 
     def set_icon_size(self, icon_size):
         if icon_size != self.icon_size:
             GObject.idle_add(self.model.clear)
             self.icon_size = icon_size
             GObject.idle_add(self.__show_icons)
+
+    def mkdir(self, *args):
+        self.emit('mkdir')
+
+    def cut(self, *args):
+        self.emit('cut', self.get_selected_paths())
+
+    def copy(self, *args):
+        self.emit('copy', self.get_selected_paths())
+
+    def paste(self, *args):
+        folder = self.folder
+        for path in self.get_selected_paths():
+            if os.path.isdir(path):
+                folder = path
+                break
+
+        self.emit('paste', self.folder)
 
     def make_menu(self, paths):
         data = {'sort': self.sort,
@@ -218,27 +198,6 @@ class IconView(Gtk.ScrolledWindow):
 
         self.menu = G.make_menu(paths, self.folder, data)
 
-    def cut(self, *args):
-        self.emit('cut', self.get_paths())
-
-    def copy(self, *args):
-        self.emit('copy', self.get_paths())
-
-    def paste(self, *args):
-        folder = self.folder
-        for path in self.get_paths():
-            if os.path.isdir(path):
-                folder = path
-                break
-
-        self.emit('paste', self.folder)
-
-    def mkdir(self, *args):
-        self.emit('mkdir')
-
-    def select_all(self):
-        self.select_all()
-
     def show_icons(self, paths):
         GObject.idle_add(self.model.clear)
 
@@ -255,7 +214,65 @@ class IconView(Gtk.ScrolledWindow):
             elif os.path.isfile(path):
                 self.files.append(path)
 
-        GObject.idle_add(self.__show_icons)
+        GObject.idle_add(self._show_icons)
+
+    def __make_icon_view(self):
+        self.model = Gtk.ListStore(str, GdkPixbuf.Pixbuf)
+        self.view = Gtk.IconView()
+
+        self.view.set_text_column(0)
+        self.view.set_pixbuf_column(1)
+        self.view.set_can_focus(True)
+        self.view.set_model(self.model)
+        self.view.set_item_padding(0)
+        self.view.set_selection_mode(Gtk.SelectionMode.MULTIPLE)
+        self.add(self.view)
+
+    def __make_list_view(self):
+        self.model = Gtk.ListStore(GdkPixbuf.Pixbuf, str, str, str, str, str)
+        # Icon, Name, Size, Type, Modified, Path
+
+        self.view = Gtk.TreeView()
+        self.view.set_can_focus(True)
+        self.view.set_model(self.model)
+        self.add(self.view)
+
+        self.selection = self.view.get_selection()
+        self.selection.set_mode(Gtk.SelectionMode.MULTIPLE)
+
+        col_name = Gtk.TreeViewColumn(title=_('Name'))
+        col_name.set_expand(True)
+        #col_name.set_sizing(Gtk.TreeViewColumnSizing.AUTOSIZE)
+
+        cell_icon = Gtk.CellRendererPixbuf()
+        cell_text = Gtk.CellRendererText()
+        col_name.pack_start(cell_icon, False)
+        col_name.pack_start(cell_text, True)
+
+        col_name.add_attribute(cell_icon, 'pixbuf', 0)
+        col_name.add_attribute(cell_text, 'text', 1)
+
+        self.view.append_column(col_name)
+
+        number = 2
+        for name in [_('Size'), _('Type'), _('Modified')]:
+            col = Gtk.TreeViewColumn(title=name)
+            cell = Gtk.CellRendererText()
+            col.pack_start(cell, True)
+            col.add_attribute(cell, 'text', number)
+
+            self.view.append_column(col)
+            number += 1
+
+    def __open_from_menu(self, item, new_page=False):
+        paths = self.get_selected_paths()
+
+        if new_page:
+            for path in paths:
+                self.emit('new-page', path)
+
+        elif not new_page:
+            self.emit('item-selected', paths)
 
     def __rename(self, *args):
         pass
@@ -263,11 +280,59 @@ class IconView(Gtk.ScrolledWindow):
     def __compress(self, *args):
         pass
 
+    def __sort_changed(self, item, sort):
+        self.sort = sort
+
+    def __reverse_changed(self, item):
+        self.reverse = not self.reverse
+
+    def __show_properties(self, item):
+        self.emit('show-properties', self.get_selected_paths())
+
     def __move_to_trash(self, *args):
         pass
 
     def __remove(self, *args):
         pass
+
+
+class IconView(View):
+
+    def __init__(self, folder):
+        View.__init__(self, G.MODE_ICONS, folder)
+
+        # FIXME: Cuando se abre una nueva pestaña, y se regresa a la inicial,
+        #        se pierde la selección anteriror, hay que guardar los objetos
+        #        seleccionados y volverlos a seleccionar.
+
+        self.view.connect('button-press-event', self.__button_press_event_cb)
+        self.view.connect('selection-changed', self.__selection_changed)
+
+    def get_selected_paths(self):
+        selected = []
+        for path in self.view.get_selected_items():
+            treeiter = self.model.get_iter(path)
+            name = self.model.get_value(treeiter, 0)
+            directory = os.path.join(self.folder, name)
+
+            if name == G.HOME_NAME:
+                directory = G.HOME_DIR
+
+            selected.append(G.clear_path(directory))
+
+        return selected
+
+    def get_selected_paths(self):
+        paths = []
+
+        for path in self.view.get_selected_items():
+            treeiter = self.model.get_iter(path)
+            paths.append(self.get_path_from_treeiter(treeiter))
+
+        return paths
+
+    def select_all(self):
+        self.select_all()
 
     def __selection_changed(self, view):
         self.emit('selection-changed', self.get_selected_paths())
@@ -309,174 +374,29 @@ class IconView(Gtk.ScrolledWindow):
         if event.button == 1 and event.type.value_name == self.activation:
             self.emit('item-selected', directory)
 
-    def __open_from_menu(self, item, new_page=False):
-        paths = self.get_paths()
-
-        if new_page:
-            for path in paths:
-                self.emit('new-page', path)
-
-        elif not new_page:
-            self.emit('item-selected', paths)
-
-    def __sort_changed(self, item, sort):
-        self.sort = sort
-
-    def __reverse_changed(self, item):
-        self.reverse = not self.reverse
-
-    def __show_properties(self, item):
-        paths = self.get_paths()
-        self.emit('show-properties', paths)
-
-    def __show_icons(self):
+    def _show_icons(self):
         for path in self.folders + self.files:
             name = self.dirs[path]
             pixbuf = G.get_pixbuf_from_path(path, self.icon_size)
             self.model.append([name, pixbuf])
 
 
-class ListView(Gtk.ScrolledWindow):
-
-    __gsignals__ = {
-        'item-selected': (GObject.SIGNAL_RUN_FIRST, None, [object]),
-        'new-page': (GObject.SIGNAL_RUN_FIRST, None, [object]),
-        'selection-changed': (GObject.SIGNAL_RUN_FIRST, None, [object]),
-        'show-properties': (GObject.SIGNAL_RUN_FIRST, None, [object]),
-        'mkdir': (GObject.SIGNAL_RUN_FIRST, None, []),
-        'cut': (GObject.SIGNAL_RUN_FIRST, None, [object]),
-        'copy': (GObject.SIGNAL_RUN_FIRST, None, [object]),
-        'paste': (GObject.SIGNAL_RUN_FIRST, None, [str]),
-        }
+class ListView(View):
 
     def __init__(self, folder):
-        Gtk.ScrolledWindow.__init__(self)
+        View.__init__(self, G.MODE_LIST, folder)
 
-        self.history = []
-        self.folders = []
-        self.files = []
-        self.folder = folder
-        self.icon_size = 10
-        self.dirs = G.Dirs()
-        self.menu = None
-        self.sort = G.SORT_BY_NAME
-        self.reverse = False
-        self.activation = G.ACTIVATION_WITH_TWO_CLICKS
         self.selected_paths = []
-
-        # Icon, Name, Size, Type, Modified, Path
-        self.model = Gtk.ListStore(GdkPixbuf.Pixbuf, str, str, str, str, str)
-
-        self.view = Gtk.TreeView()
-        self.view.set_can_focus(True)
-        self.view.set_model(self.model)
         self.view.connect('button-press-event', self.__button_press_event_cb)
-        self.add(self.view)
-
-        self.selection = self.view.get_selection()
-        self.selection.set_mode(Gtk.SelectionMode.MULTIPLE)
         self.selection.connect('changed', self.__selection_changed_cb)
-
-        col_name = Gtk.TreeViewColumn(title=_('Name'))
-        col_name.set_expand(True)
-        #col_name.set_sizing(Gtk.TreeViewColumnSizing.AUTOSIZE)
-
-        cell_icon = Gtk.CellRendererPixbuf()
-        cell_text = Gtk.CellRendererText()
-        col_name.pack_start(cell_icon, False)
-        col_name.pack_start(cell_text, True)
-
-        col_name.add_attribute(cell_icon, 'pixbuf', 0)
-        col_name.add_attribute(cell_text, 'text', 1)
-
-        self.view.append_column(col_name)
-
-        number = 2
-        for name in [_('Size'), _('Type'), _('Modified')]:
-            col = Gtk.TreeViewColumn(title=name)
-            cell = Gtk.CellRendererText()
-            col.pack_start(cell, True)
-            col.add_attribute(cell, 'text', number)
-
-            self.view.append_column(col)
-            number += 1
 
     def get_selected_paths(self):
         return self.selected_paths
 
-    def set_icon_size(self, icon_size):
-        if icon_size != self.icon_size:
-            self.icon_size = icon_size
-            GObject.idle_add(self.__show_icons)
-
     def select_all(self):
         self.selection.select_all()
 
-    def show_icons(self, paths):
-        del self.folders
-        del self.files
-
-        self.folders = []
-        self.files = []
-
-        for path in paths:
-            if os.path.isdir(path):
-                self.folders.append(path)
-
-            elif os.path.isfile(path):
-                self.files.append(path)
-
-        GObject.idle_add(self.__show_icons)
-
-    def make_menu(self):
-        data = {'sort': self.sort,
-                'reverse': self.reverse,
-                'open-from-menu': self.__open_from_menu,
-                'mkdir': self.mkdir,
-                'cut': self.cut,
-                'copy': self.copy,
-                'paste': self.paste,
-                'rename': self.__rename,
-                'sort-changed': self.__sort_changed,
-                'reverse-changed': self.__reverse_changed,
-                'show-properties': self.__show_properties,
-                'compress': self.__compress,
-                'move-to-trash': self.__move_to_trash,
-                'remove': self.__remove}
-
-        self.menu = G.make_menu(self.selected_paths, self.folder, data)
-
-    def cut(self, *args):
-        pass
-
-    def copy(self, *args):
-        pass
-
-    def paste(self, *args):
-        pass
-
-    def mkdir(self, *args):
-        self.emit('mkdir')
-
-    def __rename(self, *args):
-        pass
-
-    def __sort_changed(self, *args):
-        pass
-
-    def __reverse_changed(self, *args):
-        pass
-
-    def __compress(self, *args):
-        pass
-
-    def __move_to_trash(self, *args):
-        pass
-
-    def __remove(self, *args):
-        pass
-
-    def __show_icons(self):
+    def _show_icons(self):
         self.model.clear()
 
         for path in self.folders + self.files:
@@ -491,7 +411,8 @@ class ListView(Gtk.ScrolledWindow):
         self.show_all()
 
     def __button_press_event_cb(self, view, event):
-        treepath = view.get_path_at_pos(int(event.x), int(event.y))[0]
+        data = view.get_path_at_pos(int(event.x), int(event.y))
+        treepath = data[0] if data else None
         treeiter = self.model.get_iter(treepath) if treepath else None
         path = self.model.get_value(treeiter, 5) if treeiter else self.folder
 
@@ -507,7 +428,8 @@ class ListView(Gtk.ScrolledWindow):
                 self.selection.unselect_all()
                 self.selection.select_iter(treeiter)
 
-            self.make_menu()
+            self.make_menu(
+                self.selected_paths if self.selected_paths else [self.folder])
             self.menu.popup(None, None, None, None, event.button, event.time)
             return True
 
@@ -529,9 +451,6 @@ class ListView(Gtk.ScrolledWindow):
 
         elif not new_page:
             self.emit('item-selected', self.selected_paths)
-
-    def __show_properties(self, item):
-        self.emit('show-properties', self.selected_paths)
 
 
 class InfoBar(Gtk.InfoBar):

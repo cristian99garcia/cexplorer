@@ -25,6 +25,7 @@ from gi.repository import Gtk
 from gi.repository import Gdk
 from gi.repository import GObject
 
+from widgets import View
 from widgets import InfoBar
 from widgets import IconView
 from widgets import ListView
@@ -326,7 +327,7 @@ class CExplorer(Gtk.Window):
         #        para poder hacer set_sensitive
 
         update_icons = False
-        if (not view or not isinstance(view, Gtk.ScrolledWindow)) and force:
+        if not isinstance(view, View) and force:
             view = self.get_actual_view()
             update_icons = True
 
