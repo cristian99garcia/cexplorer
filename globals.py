@@ -44,14 +44,6 @@ def clear_path(path):
     return path
 
 
-TOOLTIP_THEME = '''
-Tooltip {
-    border-radius: 10px;
-    border-width: 20px;
-    background-color: #000;
-}
-'''
-
 DEFAULT_ICON_SIZE = 48
 DEFAULT_ITEM_ICON_SIZE = 16
 

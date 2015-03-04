@@ -120,6 +120,7 @@ class View(Gtk.ScrolledWindow):
         'item-selected': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         'new-page': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         'selection-changed': (GObject.SIGNAL_RUN_FIRST, None, [object]),
+        'reverse-changed': (GObject.SIGNAL_RUN_FIRST, None, [bool]),
         'show-properties': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         'mkdir': (GObject.SIGNAL_RUN_FIRST, None, []),
         'cut': (GObject.SIGNAL_RUN_FIRST, None, [object]),
@@ -285,6 +286,7 @@ class View(Gtk.ScrolledWindow):
 
     def __reverse_changed(self, item):
         self.reverse = not self.reverse
+        self.emit('reverse-changed', self.reverse)
 
     def __show_properties(self, item):
         self.emit('show-properties', self.get_selected_paths())
@@ -375,7 +377,19 @@ class IconView(View):
             self.emit('item-selected', directory)
 
     def _show_icons(self):
-        for path in self.folders + self.files:
+        if self.reverse:
+            self.folders.sort()
+            self.folders.reverse()
+            self.files.sort()
+            self.files.reverse()
+            paths = self.files + self.folders
+
+        elif not self.reverse:
+            self.folders.sort()
+            self.files.sort()
+            paths = self.folders + self.files
+
+        for path in paths:
             name = self.dirs[path]
             pixbuf = G.get_pixbuf_from_path(path, self.icon_size)
             self.model.append([name, pixbuf])
@@ -397,9 +411,21 @@ class ListView(View):
         self.selection.select_all()
 
     def _show_icons(self):
+        if self.reverse:
+            self.folders.sort()
+            self.folders.reverse()
+            self.files.sort()
+            self.files.reverse()
+            paths = self.files + self.folders
+
+        elif not self.reverse:
+            self.folders.sort()
+            self.files.sort()
+            paths = self.folders + self.files
+
         self.model.clear()
 
-        for path in self.folders + self.files:
+        for path in paths:
             pixbuf = G.get_pixbuf_from_path(path, self.icon_size)
             name = self.dirs[path]
             size = G.get_simple_size(path)

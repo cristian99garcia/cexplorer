@@ -248,6 +248,7 @@ class CExplorer(Gtk.Window):
         view.connect(
             'item-selected', lambda *args: self.notebook.update_tab_labels())
         view.connect('new-page', lambda x, p: self.new_page(p))
+        view.connect('reverse-changed', self.__reverse_changed)
         view.connect('show-properties', self.show_properties_for_paths)
         view.connect('mkdir', self.__show_mkdir_infobar)
         view.connect('copy', self.copy_from_view)
@@ -349,6 +350,11 @@ class CExplorer(Gtk.Window):
             self.other_view = False
             return self.view
 
+    def __reverse_changed(self, view, mode):
+        for view in self.notebook.get_children():
+            view.reverse = mode
+            GObject.idle_add(view.show_icons, view.folders + view.files)
+
     def __realize_cb(self, *args):
         self.place_box.change_mode()
 
@@ -434,6 +440,7 @@ class CExplorer(Gtk.Window):
             view.connect('item-selected',
                          lambda *args: self.notebook.update_tab_labels())
             view.connect('new-page', lambda x, p: self.new_page(p))
+            view.connect('reverse-changed', self.__reverse_changed)
             view.connect('show-properties', self.show_properties_for_paths)
             view.connect('copy', self.copy)
             view.connect('paste', self.paste)
