@@ -260,7 +260,8 @@ class Dirs(object):
         return False
 
     def get_pixbuf_symbolic(self, path):
-        icon_theme = Gtk.IconTheme()
+        screen = Gdk.Screen.get_default()
+        icon_theme = Gtk.IconTheme.get_for_screen(screen)
         return icon_theme.load_icon(
             self.symbolic_icons[path], DEFAULT_ITEM_ICON_SIZE, 0)
 
