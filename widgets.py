@@ -120,6 +120,7 @@ class View(Gtk.ScrolledWindow):
         'item-selected': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         'new-page': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         'selection-changed': (GObject.SIGNAL_RUN_FIRST, None, [object]),
+        'sort-changed': (GObject.SIGNAL_RUN_FIRST, None, [int]),
         'reverse-changed': (GObject.SIGNAL_RUN_FIRST, None, [bool]),
         'show-properties': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         'mkdir': (GObject.SIGNAL_RUN_FIRST, None, []),
@@ -283,6 +284,7 @@ class View(Gtk.ScrolledWindow):
 
     def __sort_changed(self, item, sort):
         self.sort = sort
+        self.emit('sort-changed', self.sort)
 
     def __reverse_changed(self, item):
         self.reverse = not self.reverse
@@ -377,16 +379,61 @@ class IconView(View):
             self.emit('item-selected', directory)
 
     def _show_icons(self):
-        if self.reverse:
-            self.folders.sort()
-            self.folders.reverse()
-            self.files.sort()
-            self.files.reverse()
-            paths = self.files + self.folders
+        if self.sort == G.SORT_BY_NAME:
+            if self.reverse:
+                self.folders.sort()
+                self.folders.reverse()
+                self.files.sort()
+                self.files.reverse()
+                paths = self.files + self.folders
 
-        elif not self.reverse:
-            self.folders.sort()
-            self.files.sort()
+            elif not self.reverse:
+                self.folders.sort()
+                self.files.sort()
+                paths = self.folders + self.files
+
+        elif self.sort == G.SORT_BY_SIZE:
+            folders = []
+            _folders = {}
+            files = []
+            _files = {}
+
+            for folder in self.folders:
+                size = G.get_total_size([folder])
+                if not size in _folders:  # Use list for folders with same size
+                    _folders[size] = []
+
+                _folders[size].append(folder)
+
+            for _file in self.files:
+                size = G.get_total_size([_file])
+                if not size in _files:  # User list for files with same size
+                    _files[size] = []
+
+                _files[size].append(_file)
+
+            folders_sizes = _folders.keys()
+            folders_sizes.sort()
+            if not self.reverse:
+                folders_sizes.reverse()
+
+            self.folders = []
+
+            for size in folders_sizes:
+                for folder in _folders[size]:
+                    self.folders.append(folder)
+
+            files_sizes = _files.keys()
+            files_sizes.sort()
+            if not self.reverse:
+                files_sizes.reverse()
+
+            self.files = []
+
+            for size in files_sizes:
+                for _file in _files[size]:
+                    self.files.append(_file)
+
             paths = self.folders + self.files
 
         for path in paths:
@@ -411,16 +458,61 @@ class ListView(View):
         self.selection.select_all()
 
     def _show_icons(self):
-        if self.reverse:
-            self.folders.sort()
-            self.folders.reverse()
-            self.files.sort()
-            self.files.reverse()
-            paths = self.files + self.folders
+        if self.sort == G.SORT_BY_NAME:
+            if self.reverse:
+                self.folders.sort()
+                self.folders.reverse()
+                self.files.sort()
+                self.files.reverse()
+                paths = self.files + self.folders
 
-        elif not self.reverse:
-            self.folders.sort()
-            self.files.sort()
+            elif not self.reverse:
+                self.folders.sort()
+                self.files.sort()
+                paths = self.folders + self.files
+
+        elif self.sort == G.SORT_BY_SIZE:
+            folders = []
+            _folders = {}
+            files = []
+            _files = {}
+
+            for folder in self.folders:
+                size = G.get_total_size([folder])
+                if not size in _folders:  # Use list for folders with same size
+                    _folders[size] = []
+
+                _folders[size].append(folder)
+
+            for _file in self.files:
+                size = G.get_total_size([_file])
+                if not size in _files:  # User list for files with same size
+                    _files[size] = []
+
+                _files[size].append(_file)
+
+            folders_sizes = _folders.keys()
+            folders_sizes.sort()
+            if not self.reverse:
+                folders_sizes.reverse()
+
+            self.folders = []
+
+            for size in folders_sizes:
+                for folder in _folders[size]:
+                    self.folders.append(folder)
+
+            files_sizes = _files.keys()
+            files_sizes.sort()
+            if not self.reverse:
+                files_sizes.reverse()
+
+            self.files = []
+
+            for size in files_sizes:
+                for _file in _files[size]:
+                    self.files.append(_file)
+
             paths = self.folders + self.files
 
         self.model.clear()
