@@ -645,6 +645,10 @@ class LateralView(Gtk.ScrolledWindow):
         if not row:
             return
 
+        if not self._emit:
+            self._emit = True
+            return
+
         if not hasattr(row, 'data'):
             self.folder = row._path
             self.emit('item-selected', self.folder)
@@ -657,43 +661,13 @@ class LateralView(Gtk.ScrolledWindow):
 
             else:
                 if not data['mounted']:
-                #  Try mount
+                    # Try mount
                     mo = Gio.MountOperation()
                     mo.set_anonymous(True)
                     loop = GObject.MainLoop()
                     data['volume'].mount(
                         0, mo, None, self.mount_done_cb, loop, row)
                     loop.run()
-
-        """
-
-            elif path == 'None' and row.device_data:
-                loop = GObject.MainLoop()
-                found = False
-                device = row.device_data['device']
-                mount_operation = Gio.MountOperation()
-                mount_operation.set_anonymous(True)
-
-                if device and not row.device_data['mounted']:
-                    device.mount(
-                        0, mount_operation, None, self.mount_finish, loop)
-
-                elif device and row.device_data['mounted']:
-                    self.folder = G.clear_path(
-                        device.get_mount().get_root().get_path())
-                    self.emit('item-selected', self.folder)
-                    break
-
-                elif not device and row.device_data['path']:
-                    self.folder = G.clear_path(row.device_data['path'])
-                    self.emit('item-selected', self.folder)
-                    break
-
-                if found:
-                    loop.run()
-
-                break
-        """
 
     def make_menu(self, row):
         path = self.paths[row]
@@ -719,6 +693,7 @@ class LateralView(Gtk.ScrolledWindow):
         item.connect('activate', lambda i: self.emit('show-properties', path))
         self.menu.append(item)
 
+        self.menu.connect('hide', self.__reselect_row)
         self.menu.show_all()
 
     def add_section(self, name):
@@ -1002,6 +977,13 @@ class LateralView(Gtk.ScrolledWindow):
             self.make_menu(row)
             self.menu.popup(None, None, None, None, event.button, event.time)
             return True
+
+    def __reselect_row(self, menu):
+        self._emit = False
+        for row, path in self.paths.items():
+            if path == self.folder:
+                self.view.select_row(row)
+                return
 
 
 class Notebook(Gtk.Notebook):
