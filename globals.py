@@ -435,7 +435,8 @@ class CCPManager(GObject.GObject):
 
 def get_pixbuf_from_path(path, size=None):
     size = DEFAULT_ICON_SIZE if not size else size
-    icon_theme = Gtk.IconTheme()
+    screen = Gdk.Screen.get_default()
+    icon_theme = Gtk.IconTheme.get_for_screen(screen)
     gfile = Gio.File.new_for_path(path)
     info = gfile.query_info(
         'standard::icon', Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, None)
