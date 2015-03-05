@@ -847,5 +847,25 @@ def get_mount_space(path):
     return (0, 0, 0)
 
 
+def set_default_application(path, app):
+    _file = os.path.expanduser('~/.local/share/applications/mimeapps.list')
+    if not os.path.exists(_file):
+        folder = get_parent_directory(_file)
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+
+        f = open(_file, 'w')
+        f.write('')
+        f.close()
+
+    cfg = ConfigParser.ConfigParser()
+    cfg.read([_file])
+
+    if not cfg.has_section('Default Applications'):
+        return cfg.add_section('Default Applications')
+
+    cfg.set('Default Applications', get_type(path), app)
+
+
 Dirs().mounts = []  # If you add the __init__, every time you do Dirs(),
                     # the mounts Variable returns to []

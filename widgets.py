@@ -1511,15 +1511,26 @@ class PropertiesWindow(Gtk.Dialog):
         elif len(paths) > 1:
             self.make_info(_('Ubication:'), G.get_parent_directory(paths[0]))
 
-        if len(paths) == 1 and os.path.isfile(paths[0]):
-            label = Gtk.Label(('Open with:'))
-            label.set_selectable(True)
-            label.modify_font(Pango.FontDescription('Bold'))
-            self.grid_info.attach(label, 0, self.info_number, 1, 1)
+        show_app_selecter = True
+        mimetype = None
+        for x in paths:
+            if os.path.isdir(x):
+                show_app_selecter = False
+                break
 
-            button = Gtk.AppChooserButton(content_type=G.get_type(paths[0]))
-            button.set_show_dialog_item(True)
-            self.grid_info.attach(button, 1, self.info_number, 1, 1)
+            if not mimetype:
+                mimetype = G.get_type(x)
+                continue
+
+            if mimetype != G.get_type(x):
+                show_app_selecter = False
+                break
+
+        if show_app_selecter:
+            self.vbox_open_with = Gtk.VBox()
+            self.make_open_with(paths)
+            self.stack.add_titled(
+                self.vbox_open_with, 'open-with', _('Open with'))
 
         self.vbox_permissions = Gtk.VBox()
         self.make_permissions()
@@ -1555,6 +1566,23 @@ class PropertiesWindow(Gtk.Dialog):
         self.grid_info.attach(label_info, 1, self.info_number, 1, 1)
 
         self.info_number += 1
+
+    def make_open_with(self, paths):
+        widget = Gtk.AppChooserWidget(content_type=G.get_type(paths[0]))
+        widget.set_show_recommended(True)
+        widget.set_show_fallback(True)
+        widget.set_show_other(True)
+        widget.connect(
+            'application-activated', self.__defualt_app_changed, paths)
+        self.vbox_open_with.add(widget)
+
+        buttonbox = Gtk.HButtonBox()
+        buttonbox.set_layout(Gtk.ButtonBoxStyle.END)
+        self.vbox_open_with.pack_end(buttonbox, False, False, 0)
+
+        button = Gtk.Button(_('Set to default'))
+        button.set_sensitive(False)
+        buttonbox.pack_end(button, False, False, 10)
 
     def make_permissions(self):
         hbox = Gtk.HBox()
@@ -1592,6 +1620,13 @@ class PropertiesWindow(Gtk.Dialog):
 
     def __rename_file(self, entry):
         self.emit('rename-file', self.old_path, entry.get_text())
+
+    def __defualt_app_changed(self, widget, app_info, paths):
+        if not app_info:
+            return
+
+        for path in paths:
+            G.set_default_application(path, app_info.get_executable())
 
 
 class ProgressWindow(Gtk.Window):
