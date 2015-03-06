@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # Copyright (C) 2014, Cristian García <cristian99garcia@gmail.com>
+# Copyright (C) 2015, Cristian García <cristian99garcia@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

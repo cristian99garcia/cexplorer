@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # Copyright (C) 2014, Cristian García <cristian99garcia@gmail.com>
+# Copyright (C) 2015, Cristian García <cristian99garcia@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -845,6 +846,48 @@ def get_mount_space(path):
             return int(total_space), int(used_space), int(free_space)
 
     return (0, 0, 0)
+
+
+def get_all_bookmarks():
+    path = os.path.expanduser('~/.config/gtk-3.0/bookmarks')
+    if not os.path.exists(path):
+        return {}
+
+    readable, writable = get_access(path)
+    if not readable:
+        return {}
+
+    text = open(path, 'r').read()
+    bookmarks = {}
+    tildes = {'%C3%A1': 'á',
+              '%C3%E1': 'é',
+              '%C3%AD': 'í',
+              '%C3%O1': 'ó',
+              '%C3%BA': 'ú'}
+
+    for path in text.splitlines():
+        if path.startswith('file:///'):
+            path = path[7:]  # 'file://' has 7 characters
+
+        if ' ' in path.split('/')[-1]:
+            name = path.split(' ')[-1]
+            path = path[:-len(name) - 1]  # -1 for the space
+
+        else:
+            name = path.split('/')[-1]
+
+        if '%20' in path:
+            path = path.replace('%20', ' ')
+            name = name.replace('%20', ' ')
+
+        for representation, tilde in tildes.items():
+            path = path.replace(representation, tilde)
+            name = name.replace(representation, tilde)
+
+        if not clear_path(path) in Dirs().dirs:
+            bookmarks[name] = clear_path(path)
+
+    return bookmarks
 
 
 def set_default_application(path, app):

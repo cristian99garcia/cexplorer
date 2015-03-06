@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # Copyright (C) 2014, Cristian García <cristian99garcia@gmail.com>
+# Copyright (C) 2015, Cristian García <cristian99garcia@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -723,27 +724,6 @@ class LateralView(Gtk.ScrolledWindow):
         self.view.connect('button-press-event', self.__button_press_event_cb)
         self.add(self.view)
 
-    def mount_done_cb(self, volume, result, loop, row):
-        volume.mount_finish(result)
-        loop.quit()
-
-        self.folder = volume.get_mount().get_root().get_path()
-        self.dirs.add_mount(self.folder)
-        row.path = self.folder
-        row.data['path'] = self.folder
-        self.emit('item-selected', self.folder)
-
-        total_space, used_space, free_space = G.get_mount_space(self.folder)
-        row.data['levelbar'].set_min_value(0)
-        row.data['levelbar'].set_max_value(total_space)
-        row.data['levelbar'].set_value(used_space)
-        row.data['levelbar'].show()
-
-        if not 'umontable' in row.data or \
-                ('umontable' in row.data and row.data['umontable']):
-
-            row.data['button-close'].show_all()
-
     def __realize_cb(self, widget):
         for row in self.view.get_children():
             if not hasattr(row, 'data'):
@@ -787,6 +767,46 @@ class LateralView(Gtk.ScrolledWindow):
                         0, mo, None, self.mount_done_cb, loop, row)
                     loop.run()
 
+    def __button_press_event_cb(self, listbox, event):
+        if event.button == 3:
+            row = self.view.get_row_at_y(event.y)
+            if not row:
+                return
+
+            self._emit = False
+            self.view.select_row(row)
+            self.make_menu(row)
+            self.menu.popup(None, None, None, None, event.button, event.time)
+            return True
+
+    def __reselect_row(self, menu):
+        self._emit = False
+        for row, path in self.paths.items():
+            if path == self.folder:
+                self.view.select_row(row)
+                return
+
+    def mount_done_cb(self, volume, result, loop, row):
+        volume.mount_finish(result)
+        loop.quit()
+
+        self.folder = volume.get_mount().get_root().get_path()
+        self.dirs.add_mount(self.folder)
+        row.path = self.folder
+        row.data['path'] = self.folder
+        self.emit('item-selected', self.folder)
+
+        total_space, used_space, free_space = G.get_mount_space(self.folder)
+        row.data['levelbar'].set_min_value(0)
+        row.data['levelbar'].set_max_value(total_space)
+        row.data['levelbar'].set_value(used_space)
+        row.data['levelbar'].show()
+
+        if not 'umontable' in row.data or \
+                ('umontable' in row.data and row.data['umontable']):
+
+            row.data['button-close'].show_all()
+
     def make_menu(self, row):
         path = self.paths[row]
         self.menu = Gtk.Menu()
@@ -827,23 +847,37 @@ class LateralView(Gtk.ScrolledWindow):
         hbox.pack_start(label, False, False, 10)
 
     def make_items(self):
-        for x in self.dirs:
-            if x != '/':
-                self.add_folder(x)
+        for x in self.dirs.dirs:
+            self.add_folder(x)
 
-            else:
-                data = {'mounted': True, 'umontable': False, 'path': '/',
-                        'name': self.dirs['/'], 'device': None,
-                        'pixbuf': self.dirs.get_pixbuf_symbolic('/')}
+        self.make_bookmarks()
 
-                self.add_mount(data=data)
+        data = {'mounted': True, 'umontable': False, 'path': '/',
+                'name': self.dirs['/'], 'device': None,
+                'pixbuf': self.dirs.get_pixbuf_symbolic('/')}
 
-    def add_folder(self, path=None):
+        self.add_mount(data=data)
+
+    def make_bookmarks(self):
+        bookmarks = G.get_all_bookmarks()
+        if not bookmarks:
+            return
+
+        self.add_section(_('Bookmarks'))
+        for name, path in bookmarks.items():
+            self.add_folder(path, name, pix_from_dirs=False)
+
+    def add_folder(self, path=None, name=None, pix_from_dirs=True):
         if path and not path in self.dirs:
             self.remove_mount(path)
 
-        pixbuf = self.dirs.get_pixbuf_symbolic(path)
-        name = self.dirs[path]
+        if pix_from_dirs:
+            pixbuf = self.dirs.get_pixbuf_symbolic(path)
+
+        else:
+            pixbuf = G.get_pixbuf_from_path(path, G.DEFAULT_ITEM_ICON_SIZE)
+
+        name = self.dirs[path] if not name else name
         image = Gtk.Image.new_from_pixbuf(pixbuf)
 
         row = Gtk.ListBoxRow()
@@ -1083,25 +1117,6 @@ class LateralView(Gtk.ScrolledWindow):
 
         if G.clear_path(self.folder) == G.clear_path(path):
             self.emit('item-selected', G.get_parent_directory(path))
-
-    def __button_press_event_cb(self, listbox, event):
-        if event.button == 3:
-            row = self.view.get_row_at_y(event.y)
-            if not row:
-                return
-
-            self._emit = False
-            self.view.select_row(row)
-            self.make_menu(row)
-            self.menu.popup(None, None, None, None, event.button, event.time)
-            return True
-
-    def __reselect_row(self, menu):
-        self._emit = False
-        for row, path in self.paths.items():
-            if path == self.folder:
-                self.view.select_row(row)
-                return
 
 
 class Notebook(Gtk.Notebook):
