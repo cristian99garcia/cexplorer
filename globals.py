@@ -859,10 +859,15 @@ def get_all_bookmarks():
 
     text = open(path, 'r').read()
     bookmarks = {}
-    tildes = {'%C3%A1': 'á',
-              '%C3%E1': 'é',
+    tildes = {'%C3%81': 'Á',
+              '%C3%89': 'É',
+              '%C3%8D': 'Í',
+              '%C3%93': 'Ó',
+              '%C3%9A': 'Ú',
+              '%C3%A1': 'á',
+              '%C3%A9': 'é',
               '%C3%AD': 'í',
-              '%C3%O1': 'ó',
+              '%C3%B3': 'ó',
               '%C3%BA': 'ú'}
 
     for path in text.splitlines():
