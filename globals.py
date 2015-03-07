@@ -35,12 +35,30 @@ from gi.repository import GObject
 from gi.repository import GdkPixbuf
 
 
+TILDES = {'%C3%81': 'Á',
+          '%C3%89': 'É',
+          '%C3%8D': 'Í',
+          '%C3%93': 'Ó',
+          '%C3%9A': 'Ú',
+          '%C3%A1': 'á',
+          '%C3%A9': 'é',
+          '%C3%AD': 'í',
+          '%C3%B3': 'ó',
+          '%C3%BA': 'ú'}
+
+
 def clear_path(path):
     path = path.replace('//', '/')
     path = path.replace('//', '/')
 
+    for representation, tilde in TILDES.items():
+        path = path.replace(representation, tilde)
+
     if not path.endswith('/') and os.path.isdir(path):
         path = path + '/'
+
+    if '%20' in path:
+        path = path.replace('%20', ' ')
 
     return path
 
@@ -99,6 +117,10 @@ VIDEOS_DIR = clear_path(GLib.get_user_special_dir(GLib.USER_DIRECTORY_VIDEOS))
 VIDEOS_NAME = _('Videos')
 SYSTEM_DIR = '/'
 SYSTEM_NAME = _('Equipment')
+TRASH_DIR = os.path.expanduser('~/.local/share/Trash/files/')
+TRASH_NAME = _('Trash')
+TRASH_INFO_DIR = os.path.expanduser('~/.local/share/Trash/info/')
+
 
 KEYS = {65288: 'Backspace',
         65293: 'Enter',
@@ -144,6 +166,7 @@ class Dirs(object):
                      MUSIC_DIR,
                      PICTURES_DIR,
                      VIDEOS_DIR,
+                     TRASH_DIR,
                      SYSTEM_DIR]
 
         self.names = [HOME_NAME,
@@ -153,9 +176,11 @@ class Dirs(object):
                       MUSIC_NAME,
                       PICTURES_NAME,
                       VIDEOS_NAME,
+                      TRASH_NAME,
                       SYSTEM_NAME]
 
         self.specials_dirs = {HOME_DIR: HOME_NAME,
+                              TRASH_DIR: TRASH_NAME,
                               SYSTEM_DIR: SYSTEM_NAME}
 
         self.symbolic_icons = {HOME_DIR: 'go-home-symbolic',
@@ -165,6 +190,7 @@ class Dirs(object):
                                MUSIC_DIR: 'folder-music-symbolic',
                                PICTURES_DIR: 'folder-pictures-symbolic',
                                VIDEOS_DIR: 'folder-videos-symbolic',
+                               TRASH_DIR: 'user-trash-symbolic',
                                SYSTEM_DIR: 'drive-harddisk-system-symbolic'}
 
     def __new__(cls, *args, **kwargs):
@@ -205,12 +231,7 @@ class Dirs(object):
                     if cfg.has_option('Desktop Entry', 'Name'):
                         return cfg.get('Desktop Entry', 'Name')
 
-                name = '/'
-                for x in path.split('/'):
-                    if x:
-                        name = x
-
-                return name
+                return get_name(path)
 
     def __setitem__(self, name, value):
         if not name in self[name]:
@@ -427,6 +448,147 @@ class CCPManager(GObject.GObject):
         return self.operations[time_id]
 
 
+class TrashManager(GObject.GObject):
+
+    __gsignals__ = {
+        'files-changed': (GObject.SIGNAL_RUN_FIRST, None, [object]),
+        'error': (GObject.SIGNAL_RUN_FIRST, None, [int]),
+        }
+
+    def __init__(self):
+        GObject.GObject.__init__(self)
+
+        self.files = {}
+        self.files_path = TRASH_DIR
+        self.info_path = TRASH_INFO_DIR
+        self.can_scan = True
+        self.timeout = None
+
+    def start(self, timeout=500):
+        self.stop()
+        GObject.idle_add(self.scan)
+        self.timeout = GObject.timeout_add(timeout, self.scan)
+
+    def stop(self):
+        if self.timeout is None:
+            return
+
+        GObject.source_remove(self.timeout)
+        self.files = {}
+        self.timeout = None
+
+    def move_to(self, paths):
+        readable1, writable1 = get_access(self.files_path)
+        readable2, writable2 = get_access(self.info_path)
+
+        if not writable1 or not writable2:
+            #self.emit('error')
+            return
+
+        for path in paths:
+            readable, writable = get_access(path)
+            name = get_name(path)
+            new_path = os.path.join(self.files_path, name)
+            info_path = os.path.join(self.info_path, name) + '.trashinfo'
+
+            if not writable:
+                #self.emit('error')
+                continue
+
+            os.rename(path, new_path)
+
+            info_file = open(info_path, 'w')
+            cfg = ConfigParser.ConfigParser()
+
+            cfg.add_section('Trash Info')
+            cfg.set('Trash Info', 'Path', path)
+            cfg.set('Trash Info', 'DeletionDate', get_current_time())
+            cfg.write(info_file)
+            info_file.close()
+
+    def remove_paths(self, paths):
+        for path in paths:
+            name = get_name(path)
+            info_path = os.path.join(self.info_path, name) + '.trashinfo'
+            if os.path.isdir(path):
+                os.removedirs(path)
+
+            elif os.path.isfile(path):
+                os.remove(path)
+
+            os.remove(info_path)
+
+    def clear(self):
+        files = [os.path.join(self.files_path, x) \
+                for x in os.listdir(self.files_path)]
+
+        self.purge(files)
+
+    def restore(self, paths):
+        for path in paths:
+            name = get_name(path)
+            info_path = os.path.join(self.info_path, name) + '.trashinfo'
+            cfg = ConfigParser.ConfigParser()
+            cfg.read([info_path])
+            if cfg.has_section('Trash Info'):
+                if cfg.has_option('Trash Info', 'Path'):
+                    save_path = cfg.get('Trash Info', 'Path')
+
+                else:
+                    # self.emit('error')
+                    continue
+
+            else:
+                # self.emit('error')
+                continue
+
+            parent_directory = get_parent_directory(save_path)
+            readable, writable = get_access(parent_directory)
+            if not writable:
+                # self.emit('error')
+                continue
+
+            os.rename(path, save_path)
+
+    def scan(self):
+        files = {}
+
+        for path in [self.files_path, self.info_path]:
+            if not os.path.isdir(path):
+                try:
+                    os.makedirs(path)
+
+                except:
+                    print 'error creating %s' % self.files_path
+                    return False
+
+        for name in os.listdir(self.info_path):
+            if not name.endswith('.trashinfo'):
+                continue
+
+            info_path = os.path.join(self.info_path, name)
+            real_file = os.path.join(self.files_path, name[:-10])
+
+            cfg = ConfigParser.ConfigParser()
+            cfg.read([info_path])
+
+            if cfg.has_section('Trash Info'):
+                if cfg.has_option('Trash Info', 'Path'):
+                    path = clear_path(cfg.get('Trash Info', 'Path'))
+                    files[info_path] = {'path': clear_path(path),
+                                        'real-file': clear_path(real_file)}
+
+                    if cfg.has_option('Trash Info', 'DeletionDate'):
+                        deletion_date = cfg.get('Trash Info', 'DeletionDate')
+                        files[info_path]['deletion-date'] = deletion_date
+
+        if files != self.files:
+            self.files = files
+            self.emit('files-changed', files)
+
+        return True
+
+
 def get_pixbuf_from_path(path, size=None):
     size = DEFAULT_ICON_SIZE if not size else size
     screen = Gdk.Screen.get_default()
@@ -498,6 +660,7 @@ def make_menu(paths, folder, data):
             break
 
     menu = Gtk.Menu()
+    is_trash = clear_path(folder) == clear_path(TRASH_DIR)
 
     if paths and (paths[0] != folder or len(paths) > 1):
         item = Gtk.MenuItem(_('Open'))
@@ -513,12 +676,13 @@ def make_menu(paths, folder, data):
 
         menu.append(Gtk.SeparatorMenuItem())
 
-    item = Gtk.MenuItem(_('Create a folder'))
-    item.set_sensitive(writable)
-    item.connect('activate', data['mkdir'])
-    menu.append(item)
+    if not is_trash:
+        item = Gtk.MenuItem(_('Create a folder'))
+        item.set_sensitive(writable)
+        item.connect('activate', data['mkdir'])
+        menu.append(item)
 
-    menu.append(Gtk.SeparatorMenuItem())
+        menu.append(Gtk.SeparatorMenuItem())
 
     item = Gtk.MenuItem(_('Cut'))  # Copy path to clipboard
     item.set_sensitive(writable)
@@ -537,17 +701,18 @@ def make_menu(paths, folder, data):
         len(self.selected_paths) > 1 else _('Paste on this folder')
     """
 
-    item = Gtk.MenuItem(paste)
-    item.set_sensitive(writable)  # And clipboard has paths
-    item.connect('activate', data['paste'])
-    menu.append(item)
-
-    if writable and paths[0] != folder:
-        item = Gtk.MenuItem(_('Rename'))
-        item.connect('activate', data['rename'])
+    if not is_trash:
+        item = Gtk.MenuItem(paste)
+        item.set_sensitive(writable)  # And clipboard has paths
+        item.connect('activate', data['paste'])
         menu.append(item)
 
-    menu.append(Gtk.SeparatorMenuItem())
+        if writable and paths[0] != folder:
+            item = Gtk.MenuItem(_('Rename'))
+            item.connect('activate', data['rename'])
+            menu.append(item)
+
+            menu.append(Gtk.SeparatorMenuItem())
 
     item = Gtk.MenuItem(_('Sort items'))
     submenu = Gtk.Menu()
@@ -577,20 +742,21 @@ def make_menu(paths, folder, data):
     item.connect('activate', data['show-properties'])
     menu.append(item)
 
-    if readable:
+    if readable and not is_trash:
         menu.append(Gtk.SeparatorMenuItem())
 
         item = Gtk.MenuItem(_('Compress'))
         item.connect('activate', data['compress'])
         menu.append(item)
 
-    if writable:
+    if writable and not is_trash:
         menu.append(Gtk.SeparatorMenuItem())
 
         item = Gtk.MenuItem(_('Move to trash'))
         item.connect('activate', data['move-to-trash'])
         menu.append(item)
 
+    if writable and paths[0] != folder:
         item = Gtk.MenuItem(_('Remove'))
         item.connect('activate', data['remove'])
         menu.append(item)
@@ -822,11 +988,14 @@ def get_modified_time(path):
 
 
 def get_simple_modified_time(path):
-    time = datetime.datetime.now()
-    month = (
-        '0' + str(time.month)) if len(str(time.month)) == 1 else time.month
-    day = ('0' + str(time.day)) if len(str(time.day)) == 1 else time.day
-    return '%d/%s/%s' % (time.year, month, day)
+    return get_modified_time(path)
+
+
+def get_current_time():
+    t = datetime.datetime.now()
+    month = ('0' + str(t.month)) if len(str(t.month)) == 1 else t.month
+    day = ('0' + str(t.day)) if len(str(t.day)) == 1 else t.day
+    return '%d-%s-%sT%s:%s:%s' % (t.year, month, day, t.hour, t.minute, t.second)
 
 
 def get_mount_space(path):
@@ -859,35 +1028,23 @@ def get_all_bookmarks():
 
     text = open(path, 'r').read()
     bookmarks = {}
-    tildes = {'%C3%81': 'Á',
-              '%C3%89': 'É',
-              '%C3%8D': 'Í',
-              '%C3%93': 'Ó',
-              '%C3%9A': 'Ú',
-              '%C3%A1': 'á',
-              '%C3%A9': 'é',
-              '%C3%AD': 'í',
-              '%C3%B3': 'ó',
-              '%C3%BA': 'ú'}
 
     for path in text.splitlines():
         if path.startswith('file:///'):
             path = path[7:]  # 'file://' has 7 characters
 
         if ' ' in path.split('/')[-1]:
-            name = path.split(' ')[-1]
+            name = get_name(path)
             path = path[:-len(name) - 1]  # -1 for the space
 
         else:
-            name = path.split('/')[-1]
+            name = get_name(path)
 
-        if '%20' in path:
-            path = path.replace('%20', ' ')
-            name = name.replace('%20', ' ')
-
-        for representation, tilde in tildes.items():
-            path = path.replace(representation, tilde)
+        for representation, tilde in TILDES.items():
             name = name.replace(representation, tilde)
+
+        if not os.path.isdir(clear_path(path)):
+            continue
 
         if not clear_path(path) in Dirs().dirs:
             bookmarks[name] = clear_path(path)
@@ -915,5 +1072,20 @@ def set_default_application(path, app):
     cfg.set('Default Applications', get_type(path), app)
 
 
-Dirs().mounts = []  # If you add the __init__, every time you do Dirs(),
+def get_name(path):
+    # In cases where directories ending in '/' (and the directory is managed
+    # CExplorer), when directory.split('/')[-1] will return '', but this
+    # function returns the correct name.
+
+    name = '/'
+    for x in path.split('/'):
+        if not x:
+            continue
+
+        name = x
+
+    return name
+
+
+Dirs().mounts = []  # If you add in the __init__, every time you do Dirs(),
                     # the mounts Variable returns to []

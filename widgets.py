@@ -115,7 +115,7 @@ class SearchEntry(Gtk.Window):
             self.emit('select')
 
 
-class View(Gtk.ScrolledWindow):
+class View(Gtk.VBox):
 
     __gsignals__ = {
         'item-selected': (GObject.SIGNAL_RUN_FIRST, None, [object]),
@@ -128,10 +128,12 @@ class View(Gtk.ScrolledWindow):
         'cut': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         'copy': (GObject.SIGNAL_RUN_FIRST, None, [object]),
         'paste': (GObject.SIGNAL_RUN_FIRST, None, [str]),
+        'move-to-trash': (GObject.SIGNAL_RUN_FIRST, None, [object]),
+        'remove-files': (GObject.SIGNAL_RUN_FIRST, None, [object])
         }
 
     def __init__(self, view_mode, folder):
-        Gtk.ScrolledWindow.__init__(self)
+        Gtk.VBox.__init__(self)
 
         self.history = []
         self.folders = []
@@ -143,12 +145,15 @@ class View(Gtk.ScrolledWindow):
         self.sort = G.SORT_BY_NAME
         self.reverse = False
         self.activation = G.ACTIVATION_WITH_TWO_CLICKS
+        self.__scrolled = Gtk.ScrolledWindow()
 
         if view_mode == G.MODE_ICONS:
             self.__make_icon_view()
 
         elif view_mode == G.MODE_LIST:
             self.__make_list_view()
+
+        self.add(self.__scrolled)
 
     def get_path_from_treeiter(self, treeiter):
         name = self.model.get_value(treeiter, 0)
@@ -229,7 +234,7 @@ class View(Gtk.ScrolledWindow):
         self.view.set_model(self.model)
         self.view.set_item_padding(0)
         self.view.set_selection_mode(Gtk.SelectionMode.MULTIPLE)
-        self.add(self.view)
+        self.__scrolled.add(self.view)
 
     def __make_list_view(self):
         self.model = Gtk.ListStore(GdkPixbuf.Pixbuf, str, str, str, str, str)
@@ -238,7 +243,7 @@ class View(Gtk.ScrolledWindow):
         self.view = Gtk.TreeView()
         self.view.set_can_focus(True)
         self.view.set_model(self.model)
-        self.add(self.view)
+        self.__scrolled.add(self.view)
 
         self.selection = self.view.get_selection()
         self.selection.set_mode(Gtk.SelectionMode.MULTIPLE)
@@ -294,11 +299,11 @@ class View(Gtk.ScrolledWindow):
     def __show_properties(self, item):
         self.emit('show-properties', self.get_selected_paths())
 
-    def __move_to_trash(self, *args):
-        pass
+    def __move_to_trash(self, item):
+        self.emit('move-to-trash', self.get_selected_paths())
 
-    def __remove(self, *args):
-        pass
+    def __remove(self, item):
+        self.emit('remove-files', self.get_selected_paths())
 
 
 class IconView(View):
@@ -660,11 +665,40 @@ class MkdirInfoBar(Gtk.InfoBar):
         self.entry.grab_focus()
 
 
+class TrashInfoBar(Gtk.InfoBar):
+
+    __gsignals__ = {
+        'restore': (GObject.SIGNAL_RUN_FIRST, None, []),
+        'clean': (GObject.SIGNAL_RUN_FIRST, None, [])
+        }
+
+    def __init__(self):
+        Gtk.InfoBar.__init__(self)
+
+        self.add_button(_('Restore'), Gtk.ResponseType.YES)
+        self.add_button(Gtk.STOCK_CLEAR, Gtk.ResponseType.APPLY)
+
+        label = Gtk.Label(_('Trash'))
+        box = self.get_content_area()
+        box.add(label)
+
+        self.set_message_type(Gtk.MessageType.QUESTION)
+        self.connect('response', self.__response_cb)
+
+    def __response_cb(self, infobar, response):
+        if response == Gtk.ResponseType.YES:
+            self.emit('restore')
+
+        elif response == Gtk.ResponseType.QUESTION:
+            self.emit('clean')
+
+
 class LateralView(Gtk.ScrolledWindow):
 
     __gsignals__ = {
         'item-selected': (GObject.SIGNAL_RUN_FIRST, None, [str]),
         'new-page': (GObject.SIGNAL_RUN_FIRST, None, [str]),
+        'show-trash': (GObject.SIGNAL_RUN_FIRST, None, []),
         'copy': (GObject.SIGNAL_RUN_FIRST, None, [str]),
         'show-properties': (GObject.SIGNAL_RUN_FIRST, None, [str]),
         'copy': (GObject.SIGNAL_RUN_FIRST, None, [object]),
@@ -680,7 +714,7 @@ class LateralView(Gtk.ScrolledWindow):
         self.menu = None
         self.view = Gtk.ListBox()
         #  GtkListBoxRow structur when is a mount or a device:
-        #      GtkListBoxRow: add properties "data" and "_path"
+        #      GtkListBoxRow: add properties "data", "_path" and "_name"
         #        +-- GtkHBox
         #              +-- GtkImage(device image)
         #              +-- GtkVBox
@@ -749,7 +783,11 @@ class LateralView(Gtk.ScrolledWindow):
 
         if not hasattr(row, 'data'):
             self.folder = row._path
-            self.emit('item-selected', self.folder)
+            if row._name != G.TRASH_NAME:
+                self.emit('item-selected', self.folder)
+
+            else:
+                self.emit('show-trash')
 
         elif hasattr(row, 'data'):
             data = row.data
@@ -882,6 +920,7 @@ class LateralView(Gtk.ScrolledWindow):
 
         row = Gtk.ListBoxRow()
         row._path = path
+        row._name = name
         hbox = Gtk.HBox()
         label = Gtk.Label(name)
         label.set_ellipsize(Pango.EllipsizeMode.END)

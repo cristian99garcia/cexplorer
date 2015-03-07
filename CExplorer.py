@@ -36,6 +36,7 @@ from widgets import StatusBar
 from widgets import SearchEntry
 from widgets import LateralView
 from widgets import MkdirInfoBar
+from widgets import TrashInfoBar
 from widgets import ProgressWindow
 from widgets import PropertiesWindow
 
@@ -55,6 +56,7 @@ class CExplorer(Gtk.Window):
         self.shortcut = ''
         self.clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         self.ccpmanager = G.CCPManager()
+        self.trash_manager = G.TrashManager()
         self.progress_window = ProgressWindow(self.ccpmanager)
         self.actions = None
 
@@ -86,7 +88,7 @@ class CExplorer(Gtk.Window):
 
         self.lateral_view = LateralView()
         self.lateral_view.connect('item-selected', self.__item_selected)
-        self.lateral_view.connect('item-selected', self.__update_statusbar)
+        self.lateral_view.connect('show-trash', self.__show_trash)
         self.lateral_view.connect('new-page', lambda l, p: self.new_page(p))
         self.lateral_view.connect(
             'show-properties', lambda l, p: self.show_properties_for_paths(
@@ -110,6 +112,7 @@ class CExplorer(Gtk.Window):
         self.connect('key-press-event', self.__key_press_event_cb)
         self.connect('key-release-event', self.__key_release_event_cb)
         self.ccpmanager.connect('start', self.__add_new_ccp_operation)
+        self.trash_manager.connect('files-changed', self.__show_trash_files)
 
         self.make_actions()
 
@@ -255,6 +258,8 @@ class CExplorer(Gtk.Window):
         view.connect('mkdir', self.__show_mkdir_infobar)
         view.connect('copy', self.copy_from_view)
         view.connect('paste', self.paste_from_view)
+        view.connect('move-to-trash', self.__move_to_trash)
+        view.connect('remove-files', self.__remove)
 
     def copy_from_view(self, view, paths):
         text = 'COPY\n'
@@ -325,13 +330,21 @@ class CExplorer(Gtk.Window):
             view = self.get_actual_view()
 
         self.view = view
+        if G.clear_path(self.view.folder) != G.TRASH_DIR:
+            self.trash_manager.stop()
+
+        else:
+            self.trash_manager.start()
+
         self.other_view = True
         self.folder = view.folder
+        other_folder = view.folder != G.SYSTEM_DIR
+        is_trash = G.clear_path(view.folder) == G.clear_path(G.TRASH_DIR)
 
         GObject.idle_add(self.place_box.set_folder, view.folder)
         #self.place_box.button_left.set_sensitive(bool(view.history))
         #self.place_box.button_right.set_sensitive(bool(view.history))
-        self.place_box.button_up.set_sensitive(view.folder != G.SYSTEM_DIR)
+        self.place_box.button_up.set_sensitive(other_folder and not is_trash)
         if self.lateral_view.folder != self.folder:
             self.lateral_view.select_item(self.folder)
 
@@ -452,6 +465,8 @@ class CExplorer(Gtk.Window):
             view.connect('show-properties', self.show_properties_for_paths)
             view.connect('copy', self.copy)
             view.connect('paste', self.paste)
+            view.connect('move-to-trash', self.__move_to_trash)
+            view.connect('remove-files', self.__remove)
 
     def __icon_size_changed(self, widget, value):
         self.icon_size = value
@@ -464,6 +479,49 @@ class CExplorer(Gtk.Window):
 
         else:
             self.statusbar.label.set_label(self.folder)
+
+    def __show_trash(self, lateral_view):
+        view = self.get_actual_view()
+        view.folder = G.clear_path(G.TRASH_DIR)
+        show_infobar = True
+        for child in view.get_children():
+            if isinstance(child, TrashInfoBar):
+                show_infobar = False
+                break
+
+        if show_infobar:
+            infobar = TrashInfoBar()
+            infobar.connect('restore', self.__restore_from_trash)
+            infobar.connect('clean', self.__clean_trash)
+
+            view.pack_start(infobar, False, False, 0)
+            view.reorder_child(infobar, 0)
+            infobar.show_all()
+
+        self.trash_manager.start()
+
+    def __show_trash_files(self, trash_manager, files):
+        paths = []
+        for view in self.notebook.get_children():
+            if G.clear_path(view.folder) == G.clear_path(G.TRASH_DIR):
+                for path, data in self.trash_manager.files.items():
+                    paths.append(data['real-file'])
+
+                    view.show_icons(paths)
+
+    def __move_to_trash(self, view, paths):
+        self.trash_manager.move_to(paths)
+
+    def __remove(self, view, paths):
+        # FIXME: Pedir configrmación antes de eliminarlos
+        self.trash_manager.remove_paths(paths)
+
+    def __restore_from_trash(self, infobar):
+        view = self.get_actual_view()
+        self.trash_manager.restore(view.get_selected_paths())
+
+    def __clean_trash(self, infobar):
+        self.trash_manager.clear()
 
     def __try_rename(self, widget, old_path, new_name):
         readable, writable = G.get_access(old_path)
